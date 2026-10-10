@@ -8,6 +8,13 @@ function on<T extends unknown[]>(channel: string, cb: (...args: T) => void) {
 }
 
 const api: AimuxApi = {
+  window: {
+    minimize: () => ipcRenderer.invoke('window:minimize'),
+    toggleMaximize: () => ipcRenderer.invoke('window:toggleMaximize'),
+    close: () => ipcRenderer.invoke('window:close'),
+    isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+    onMaximized: (cb) => on<[boolean]>('window:maximized', cb),
+  },
   browser: {
     setBounds: (id, rect) => ipcRenderer.invoke('browser:setBounds', id, rect),
     setVisible: (id, v) => ipcRenderer.invoke('browser:setVisible', id, v),

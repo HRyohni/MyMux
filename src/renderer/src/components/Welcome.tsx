@@ -1,7 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
-import { FolderOpen, History, ArrowRight, Search, RotateCcw } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useWindowControlsInset } from '../hooks'
+import { FolderOpen, History, ArrowRight, Search, RotateCcw, Star, X, Clock } from 'lucide-react'
 import { useStore, PERMISSION_MODES, readRecent, type RecentEntry } from '../store'
 import type { SDKSessionInfo, PermissionMode } from '../../../shared/ipc'
+
+const readList = (key: string): string[] => { try { return JSON.parse(localStorage.getItem(key) ?? '[]') } catch { return [] } }
+const writeList = (key: string, v: string[]) => { try { localStorage.setItem(key, JSON.stringify(v)) } catch { /* ignore */ } }
+const FAV_KEY = 'aimux.favDirs'
+const RECENT_DIRS_KEY = 'aimux.recentDirs'
+const norm = (p: string) => p.trim().replace(/[\/]+$/, '')
+const shortName = (p: string) => { const parts = norm(p).split(/[\/]/); return parts[parts.length - 1] || p }
 
 /** Creates a session in the given pane, loading transcript history when resuming. */
 export async function openSession(paneId: string, opts: { cwd: string; resume?: string; permissionMode?: PermissionMode }) {
@@ -31,6 +39,19 @@ export default function Welcome({ paneId }: { paneId: string }) {
   const [busy, setBusy] = useState(false)
   const [lastOpen, setLastOpen] = useState<RecentEntry[]>([])
   const openSessions = useStore((s) => s.sessions)
+  const topRef = useRef<HTMLDivElement>(null)
+  const controlsInset = useWindowControlsInset(topRef)
+  const [favs, setFavs] = useState<string[]>(() => readList(FAV_KEY))
+  const [recentDirs, setRecentDirs] = useState<string[]>(() => readList(RECENT_DIRS_KEY))
+  const isFav = favs.some((f) => f.toLowerCase() === norm(cwd).toLowerCase())
+  const toggleFav = () => {
+    const c = norm(cwd)
+    if (!c) return
+    const next = isFav ? favs.filter((f) => f.toLowerCase() !== c.toLowerCase()) : [...favs, c]
+    setFavs(next); writeList(FAV_KEY, next)
+  }
+  const removeFav = (dir: string) => { const next = favs.filter((f) => f !== dir); setFavs(next); writeList(FAV_KEY, next) }
+  const quickDirs = [...favs, ...recentDirs.filter((d) => !favs.some((f) => f.toLowerCase() === d.toLowerCase()))]
 
   useEffect(() => {
     const saved = localStorage.getItem('aimux.cwd')
@@ -68,6 +89,8 @@ export default function Welcome({ paneId }: { paneId: string }) {
     setBusy(true)
     try {
       localStorage.setItem('aimux.cwd', target)
+      const nextRecent = [norm(target), ...recentDirs.filter((d) => d.toLowerCase() !== norm(target).toLowerCase())].slice(0, 8)
+      setRecentDirs(nextRecent); writeList(RECENT_DIRS_KEY, nextRecent)
       await openSession(paneId, { cwd: target, resume, permissionMode: mode })
     } finally {
       setBusy(false)
@@ -78,7 +101,10 @@ export default function Welcome({ paneId }: { paneId: string }) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <div className="drag h-10 shrink-0" />
+      <div ref={topRef} className="h-10 shrink-0 flex">
+        <div className="drag flex-1" />
+        <div className="no-drag shrink-0" style={{ width: controlsInset }} />
+      </div>
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-xl mx-auto px-6 py-8 fade-in">
           <h1 className="text-2xl font-semibold tracking-tight">Novi razgovor</h1>
@@ -111,7 +137,35 @@ export default function Welcome({ paneId }: { paneId: string }) {
             <button onClick={pick} className="px-3 py-2 rounded-lg border border-border bg-bg-elev hover:bg-bg-elev2 text-fg-muted hover:text-fg flex items-center gap-2 text-[13px]">
               <FolderOpen size={15} /> Odaberi
             </button>
+            <button onClick={toggleFav} disabled={!cwd} title={isFav ? 'Ukloni iz omiljenih' : 'Dodaj u omiljene mape'}
+              className={`w-10 rounded-lg border flex items-center justify-center transition disabled:opacity-40
+                ${isFav ? 'border-accent/60 bg-accent-soft/60 text-accent' : 'border-border bg-bg-elev hover:bg-bg-elev2 text-fg-muted hover:text-fg'}`}>
+              <Star size={15} fill={isFav ? 'currentColor' : 'none'} />
+            </button>
           </div>
+          {quickDirs.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {quickDirs.map((dir) => {
+                const fav = favs.includes(dir)
+                const active = norm(cwd).toLowerCase() === dir.toLowerCase()
+                return (
+                  <span key={dir} title={dir}
+                    className={`group inline-flex items-center gap-1 pl-2 pr-1.5 h-7 rounded-full border text-[12px] transition
+                      ${active ? 'border-accent/60 bg-accent-soft/50 text-fg' : 'border-border bg-bg-elev text-fg-muted hover:text-fg hover:bg-bg-elev2'}`}>
+                    <button onClick={() => setCwd(dir)} className="flex items-center gap-1">
+                      {fav ? <Star size={11} className="text-accent" fill="currentColor" /> : <Clock size={11} className="text-fg-faint" />}
+                      {shortName(dir)}
+                    </button>
+                    {fav && (
+                      <button onClick={() => removeFav(dir)} title="Ukloni" className="w-4 h-4 rounded-full flex items-center justify-center text-fg-faint hover:text-danger opacity-0 group-hover:opacity-100">
+                        <X size={10} />
+                      </button>
+                    )}
+                  </span>
+                )
+              })}
+            </div>
+          )}
 
           <label className="block mt-6 text-xs font-medium text-fg-muted uppercase tracking-wider">Odobravanje alata</label>
           <div className="mt-2 grid grid-cols-2 gap-2">

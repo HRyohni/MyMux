@@ -1,14 +1,15 @@
 import { useEffect } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
-import { useStore, leaves, type Layout } from './store'
+import { useStore, leaves, selectLayout, selectFocusedPane, selectActiveGroup, type Layout } from './store'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
 import Welcome, { openSession } from './components/Welcome'
+import WindowControls from './components/WindowControls'
 
 function PaneTree({ layout }: { layout: Layout }) {
-  const focusedPane = useStore((s) => s.focusedPane)
+  const focusedPane = useStore(selectFocusedPane)
   const focusPane = useStore((s) => s.focusPane)
-  const multi = useStore((s) => leaves(s.layout).length > 1)
+  const multi = useStore((s) => leaves(selectLayout(s)).length > 1)
 
   if (layout.kind === 'leaf') {
     const focused = layout.id === focusedPane
@@ -37,7 +38,7 @@ function PaneTree({ layout }: { layout: Layout }) {
 }
 
 export default function App() {
-  const layout = useStore((s) => s.layout)
+  const group = useStore(selectActiveGroup)
 
   useEffect(() => {
     const st = useStore.getState()
@@ -50,8 +51,8 @@ export default function App() {
       window.aimux.browser.onActivity((sid) => st.setBrowserOpen(sid, true)),
       window.aimux.onDevCommand((cmd) => {
         const s = useStore.getState()
-        if (cmd.type === 'resume') void openSession(s.focusedPane, { cwd: cmd.cwd, resume: cmd.sdkSessionId })
-        else if (cmd.type === 'split') s.splitPane(s.focusedPane, cmd.dir)
+        if (cmd.type === 'resume') void openSession(selectFocusedPane(s), { cwd: cmd.cwd, resume: cmd.sdkSessionId })
+        else if (cmd.type === 'split') s.splitPane(selectFocusedPane(s), cmd.dir)
       }),
     ]
     return () => offs.forEach((off) => off())
@@ -61,10 +62,22 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (!e.ctrlKey) return
       const s = useStore.getState()
-      const pane = s.focusedPane
-      const leaf = leaves(s.layout).find((l) => l.id === pane)
+      const pane = selectFocusedPane(s)
+      const leaf = leaves(selectLayout(s)).find((l) => l.id === pane)
       const key = e.key.toLowerCase()
-      if (key === 'n' && !e.shiftKey) { e.preventDefault(); s.setPaneSession(pane, null) }
+      if (/^[1-9]$/.test(e.key)) {
+        const g = s.groups[Number(e.key) - 1]
+        if (g) { e.preventDefault(); s.switchGroup(g.id) }
+      }
+      else if (key === 't' && !e.shiftKey) { e.preventDefault(); s.addGroup() }
+      else if (key === 'tab') {
+        e.preventDefault()
+        const idx = s.groups.findIndex((g) => g.id === s.activeGroup)
+        const next = s.groups[(idx + (e.shiftKey ? -1 : 1) + s.groups.length) % s.groups.length]
+        s.switchGroup(next.id)
+      }
+      else if (key === 'w' && e.shiftKey) { e.preventDefault(); s.removeGroup(s.activeGroup) }
+      else if (key === 'n' && !e.shiftKey) { e.preventDefault(); s.setPaneSession(pane, null) }
       else if (key === '\\' && !e.shiftKey) { e.preventDefault(); s.splitPane(pane, 'horizontal') }
       else if (key === '\\' && e.shiftKey) { e.preventDefault(); s.splitPane(pane, 'vertical') }
       else if (key === 'w') { e.preventDefault(); s.closePane(pane) }
@@ -79,9 +92,10 @@ export default function App() {
 
   return (
     <div className="flex h-full">
+      <WindowControls />
       <Sidebar />
       <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-bg">
-        <PaneTree layout={layout} />
+        <PaneTree key={group.id} layout={group.layout} />
       </main>
     </div>
   )

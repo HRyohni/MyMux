@@ -1,19 +1,22 @@
 import { useEffect, useRef } from 'react'
+import { useWindowControlsInset } from '../hooks'
 import { Folder, PanelRight, Columns2, Rows2, X } from 'lucide-react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import BrowserPanel from './BrowserPanel'
-import { useStore, PERMISSION_MODES, MODELS, leaves } from '../store'
+import { useStore, PERMISSION_MODES, MODELS, leaves, selectLayout } from '../store'
 import type { PermissionMode } from '../../../shared/ipc'
 import Message from './Message'
 import PermissionCard from './PermissionCard'
 import Composer from './Composer'
 
 export default function Chat({ sessionId, paneId }: { sessionId: string; paneId: string }) {
+  const headerRef = useRef<HTMLElement>(null)
+  const controlsInset = useWindowControlsInset(headerRef)
   const session = useStore((s) => s.sessions[sessionId])
   const setBrowserOpen = useStore((s) => s.setBrowserOpen)
   const splitPane = useStore((s) => s.splitPane)
   const closePane = useStore((s) => s.closePane)
-  const multi = useStore((s) => leaves(s.layout).length > 1)
+  const multi = useStore((s) => leaves(selectLayout(s)).length > 1)
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickRef = useRef(true)
 
@@ -43,11 +46,11 @@ export default function Chat({ sessionId, paneId }: { sessionId: string; paneId:
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <header className="drag h-10 shrink-0 flex items-center gap-3 px-3 border-b border-border text-[12.5px] text-fg-muted select-none">
+      <header ref={headerRef} className="drag h-10 shrink-0 flex items-center gap-3 px-3 border-b border-border text-[12.5px] text-fg-muted select-none">
         <span className={`w-2 h-2 rounded-full shrink-0 ${meta.running ? 'bg-accent pulse' : meta.ended ? 'bg-fg-faint' : 'bg-ok'}`} />
         <span className="truncate text-fg max-w-[35%]">{meta.title}</span>
         <span className="flex items-center gap-1 truncate min-w-0" title={meta.cwd}><Folder size={12} className="shrink-0" /> <span className="font-mono truncate">{meta.cwd}</span></span>
-        <div className="ml-auto no-drag flex items-center gap-1.5 shrink-0" style={{ paddingRight: multi ? 4 : 136 }}>
+        <div className="ml-auto no-drag flex items-center gap-1.5 shrink-0" style={{ paddingRight: controlsInset + 4 }}>
           <select value={modelValue ?? ''} onChange={(e) => changeModel(e.target.value)} className={select} title={`Model: ${meta.model ?? 'zadani'}`}>
             {MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
             {meta.model && !MODELS.some((m) => m.value === meta.model) && <option value={meta.model}>{meta.model}</option>}

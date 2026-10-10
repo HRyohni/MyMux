@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, RotateCw, FileUp, X, Globe, Loader2 } from 'lucide-react'
 import { useStore } from '../store'
+import { useWindowControlsInset } from '../hooks'
 
 /**
  * Chrome around the embedded WebContentsView. The page itself is drawn by Electron on top of
@@ -10,6 +11,8 @@ export default function BrowserPanel({ sessionId }: { sessionId: string }) {
   const state = useStore((s) => s.sessions[sessionId]?.browser)
   const setBrowserOpen = useStore((s) => s.setBrowserOpen)
   const holder = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
+  const controlsInset = useWindowControlsInset(barRef)
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState(false)
 
@@ -52,7 +55,7 @@ export default function BrowserPanel({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="flex flex-col h-full bg-bg-elev border-l border-border">
-      <div className="drag h-10 shrink-0 flex items-center gap-1 px-2 border-b border-border">
+      <div ref={barRef} className="drag h-10 shrink-0 flex items-center gap-1 px-2 border-b border-border" style={{ paddingRight: controlsInset + 8 }}>
         <div className="no-drag flex items-center gap-0.5">
           <button className={btn} disabled={!state?.canGoBack} onClick={() => void window.aimux.browser.back(sessionId)} title="Natrag"><ArrowLeft size={15} /></button>
           <button className={btn} disabled={!state?.canGoForward} onClick={() => void window.aimux.browser.forward(sessionId)} title="Naprijed"><ArrowRight size={15} /></button>

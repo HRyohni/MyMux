@@ -53,8 +53,7 @@ function createWindow() {
     backgroundColor: '#0f1115',
     title: 'aimux',
     icon: join(import.meta.dirname, '../../build/icon.png'),
-    titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#0f1115', symbolColor: '#9aa3b2', height: 40 },
+    frame: false,
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.mjs'),
       contextIsolation: true,
@@ -64,6 +63,13 @@ function createWindow() {
   })
 
   agents.attachWindow(win)
+  win.webContents.on('console-message', (ev) => {
+    if (ev.level === 'error' || ev.level === 'warning') console.error(`[renderer ${ev.level}] ${ev.message} (${ev.sourceId}:${ev.lineNumber})`)
+  })
+  win.webContents.on('render-process-gone', (_e, d) => console.error('[renderer gone]', d.reason))
+  const sendMax = () => win?.webContents.send('window:maximized', win.isMaximized())
+  win.on('maximize', sendMax)
+  win.on('unmaximize', sendMax)
   win.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url)
     return { action: 'deny' }
@@ -93,15 +99,15 @@ function installDevHooks() {
       void agents.browserOf(meta.id).openFile(autoOpen)
     }, 800)
   }
+  if (process.env.AIMUX_AUTOSPLIT) {
+    win?.webContents.send('dev:command', { type: 'split', dir: process.env.AIMUX_AUTOSPLIT === 'vertical' ? 'vertical' : 'horizontal' })
+  }
   if (process.env.AIMUX_AUTORESUME) {
     const cwd = process.env.AIMUX_CWD ?? process.cwd()
-    void agents.listSessions(cwd).then((list) => {
+    setTimeout(() => void agents.listSessions(cwd).then((list) => {
       const target = process.env.AIMUX_AUTORESUME === 'latest' ? list[0]?.sessionId : process.env.AIMUX_AUTORESUME
       if (target) win?.webContents.send('dev:command', { type: 'resume', sdkSessionId: target, cwd })
-    })
-  }
-  if (process.env.AIMUX_AUTOSPLIT) {
-    setTimeout(() => win?.webContents.send('dev:command', { type: 'split', dir: process.env.AIMUX_AUTOSPLIT === 'vertical' ? 'vertical' : 'horizontal' }), 2500)
+    }), 800)
   }
   const shot = process.env.AIMUX_SCREENSHOT
   if (shot) {
@@ -164,6 +170,10 @@ ipcMain.handle('dialog:pickFolder', async () => {
   return r.canceled ? null : r.filePaths[0]
 })
 ipcMain.handle('os:homeDir', () => homedir())
+ipcMain.handle('window:minimize', () => win?.minimize())
+ipcMain.handle('window:toggleMaximize', () => { if (!win) return; win.isMaximized() ? win.unmaximize() : win.maximize() })
+ipcMain.handle('window:close', () => win?.close())
+ipcMain.handle('window:isMaximized', () => win?.isMaximized() ?? false)
 
 app.setName('aimux')
 app.whenReady().then(createWindow)

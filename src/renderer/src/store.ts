@@ -31,11 +31,19 @@ export type Layout =
 
 export interface RecentEntry { sdkSessionId: string; cwd: string; title: string; at: number }
 
+/** A group is an independent pane layout (like a tmux window / wmux workspace). */
+export interface Group { id: string; name: string; layout: Layout; focusedPane: string }
+
 interface Store {
   sessions: Record<string, SessionState>
   order: string[]
-  layout: Layout
-  focusedPane: string
+  groups: Group[]
+  activeGroup: string
+  // groups
+  addGroup(): void
+  removeGroup(id: string): void
+  switchGroup(id: string): void
+  renameGroup(id: string, name: string): void
   // sessions
   addSession(meta: SessionMeta, paneId?: string): void
   removeSession(id: string): void
@@ -76,6 +84,15 @@ function removeLeaf(l: Layout, id: string): Layout | null {
 }
 export function paneOfSession(l: Layout, sessionId: string): string | null {
   return leaves(l).find((x) => x.sessionId === sessionId)?.id ?? null
+}
+
+export const selectActiveGroup = (s: { groups: Group[]; activeGroup: string }): Group =>
+  s.groups.find((g) => g.id === s.activeGroup) ?? s.groups[0]
+export const selectLayout = (s: { groups: Group[]; activeGroup: string }) => selectActiveGroup(s).layout
+export const selectFocusedPane = (s: { groups: Group[]; activeGroup: string }) => selectActiveGroup(s).focusedPane
+/** Which group shows a session, if any. */
+export function groupOfSession(groups: Group[], sessionId: string): Group | null {
+  return groups.find((g) => paneOfSession(g.layout, sessionId)) ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -273,6 +290,12 @@ function reduce(items: ChatItem[], msg: SDKMessage): ChatItem[] {
 // ---------------------------------------------------------------------------
 
 const rootPane = `p${Date.now().toString(36)}`
+const rootGroup = `g${Date.now().toString(36)}`
+
+/** Applies a change to the active group (or the given one). */
+function updateGroup(s: Store, fn: (g: Group) => Partial<Group>, id = s.activeGroup): Partial<Store> {
+  return { groups: s.groups.map((g) => (g.id === id ? { ...g, ...fn(g) } : g)) }
+}
 
 function updateSession(s: Store, id: string, fn: (cur: SessionState) => Partial<SessionState>): Partial<Store> {
   const cur = s.sessions[id]
@@ -283,16 +306,41 @@ function updateSession(s: Store, id: string, fn: (cur: SessionState) => Partial<
 export const useStore = create<Store>((set, get) => ({
   sessions: {},
   order: [],
-  layout: { kind: 'leaf', id: rootPane, sessionId: null },
-  focusedPane: rootPane,
+  groups: [{ id: rootGroup, name: 'Grupa 1', layout: { kind: 'leaf', id: rootPane, sessionId: null }, focusedPane: rootPane }],
+  activeGroup: rootGroup,
+
+  addGroup: () => set((s) => {
+    const pane = nid()
+    const n = s.groups.length + 1
+    const g: Group = { id: nid(), name: `Grupa ${n}`, layout: { kind: 'leaf', id: pane, sessionId: null }, focusedPane: pane }
+    return { groups: [...s.groups, g], activeGroup: g.id }
+  }),
+
+  removeGroup: (id) => set((s) => {
+    if (s.groups.length <= 1) {
+      // Last group: just empty it.
+      return updateGroup(s, (g) => ({ layout: mapLayout(g.layout, (l) => ({ ...l, sessionId: null })) }), id)
+    }
+    const idx = s.groups.findIndex((g) => g.id === id)
+    const groups = s.groups.filter((g) => g.id !== id)
+    const activeGroup = s.activeGroup === id ? groups[Math.max(0, idx - 1)].id : s.activeGroup
+    return { groups, activeGroup }
+  }),
+
+  switchGroup: (id) => set((s) => (s.groups.some((g) => g.id === id) && s.activeGroup !== id ? { activeGroup: id } : {})),
+
+  renameGroup: (id, name) => set((s) => updateGroup(s, () => ({ name: name.trim() || 'Grupa' }), id)),
 
   addSession: (meta, paneId) => set((s) => {
-    const target = paneId ?? s.focusedPane
+    const g = selectActiveGroup(s)
+    const target = paneId ?? g.focusedPane
     return {
       sessions: { ...s.sessions, [meta.id]: { meta, items: [], pending: [], browser: null, browserOpen: false } },
       order: [meta.id, ...s.order.filter((x) => x !== meta.id)],
-      layout: mapLayout(s.layout, (l) => (l.id === target ? { ...l, sessionId: meta.id } : l)),
-      focusedPane: target,
+      ...updateGroup(s, (gr) => ({
+        layout: mapLayout(gr.layout, (l) => (l.id === target ? { ...l, sessionId: meta.id } : l)),
+        focusedPane: target,
+      })),
     }
   }),
 
@@ -301,7 +349,7 @@ export const useStore = create<Store>((set, get) => ({
     return {
       sessions: rest,
       order: s.order.filter((x) => x !== id),
-      layout: mapLayout(s.layout, (l) => (l.sessionId === id ? { ...l, sessionId: null } : l)),
+      groups: s.groups.map((g) => ({ ...g, layout: mapLayout(g.layout, (l) => (l.sessionId === id ? { ...l, sessionId: null } : l)) })),
     }
   }),
 
@@ -310,12 +358,13 @@ export const useStore = create<Store>((set, get) => ({
     const cur = s.sessions[meta.id]
     if (!cur) {
       // Session created outside the UI (dev autoprompt): adopt it into the focused pane if empty.
-      const focused = leaves(s.layout).find((l) => l.id === s.focusedPane)
+      const g = selectActiveGroup(s)
+      const focused = leaves(g.layout).find((l) => l.id === g.focusedPane)
       const place = focused && !focused.sessionId
       return {
         sessions: { ...s.sessions, [meta.id]: { meta, items: [], pending: [], browser: null, browserOpen: false } },
         order: [meta.id, ...s.order],
-        layout: place ? mapLayout(s.layout, (l) => (l.id === s.focusedPane ? { ...l, sessionId: meta.id } : l)) : s.layout,
+        ...(place ? updateGroup(s, (gr) => ({ layout: mapLayout(gr.layout, (l) => (l.id === gr.focusedPane ? { ...l, sessionId: meta.id } : l)) })) : {}),
       }
     }
     return { sessions: { ...s.sessions, [meta.id]: { ...cur, meta } } }
@@ -349,39 +398,48 @@ export const useStore = create<Store>((set, get) => ({
 
   setBrowserOpen: (sessionId, open) => set((s) => updateSession(s, sessionId, (cur) => (cur.browserOpen === open ? {} : { browserOpen: open }))),
 
-  focusPane: (paneId) => set((s) => (s.focusedPane === paneId ? {} : { focusedPane: paneId })),
+  focusPane: (paneId) => set((s) => (selectFocusedPane(s) === paneId ? {} : updateGroup(s, () => ({ focusedPane: paneId })))),
 
   splitPane: (paneId, dir) => set((s) => {
     const fresh = { kind: 'leaf' as const, id: nid(), sessionId: null }
-    return {
-      layout: mapLayout(s.layout, (l) => (l.id === paneId ? { kind: 'split', id: nid(), dir, a: l, b: fresh } : l)),
+    return updateGroup(s, (g) => ({
+      layout: mapLayout(g.layout, (l) => (l.id === paneId ? { kind: 'split', id: nid(), dir, a: l, b: fresh } : l)),
       focusedPane: fresh.id,
-    }
+    }))
   }),
 
-  closePane: (paneId) => set((s) => {
-    const next = removeLeaf(s.layout, paneId)
-    if (!next) return { layout: mapLayout(s.layout, (l) => ({ ...l, sessionId: null })) } // last pane: just empty it
-    const focused = leaves(next).some((l) => l.id === s.focusedPane) ? s.focusedPane : leaves(next)[0].id
+  closePane: (paneId) => set((s) => updateGroup(s, (g) => {
+    const next = removeLeaf(g.layout, paneId)
+    if (!next) return { layout: mapLayout(g.layout, (l) => ({ ...l, sessionId: null })) } // last pane: just empty it
+    const focused = leaves(next).some((l) => l.id === g.focusedPane) ? g.focusedPane : leaves(next)[0].id
     return { layout: next, focusedPane: focused }
-  }),
+  })),
 
   setPaneSession: (paneId, sessionId) => set((s) => {
     if (sessionId) {
-      const elsewhere = paneOfSession(s.layout, sessionId)
-      if (elsewhere && elsewhere !== paneId) return { focusedPane: elsewhere }
+      const other = groupOfSession(s.groups, sessionId)
+      if (other) {
+        const pane = paneOfSession(other.layout, sessionId)!
+        if (other.id !== s.activeGroup || pane !== paneId) {
+          return { activeGroup: other.id, ...updateGroup(s, () => ({ focusedPane: pane }), other.id) }
+        }
+      }
     }
-    return {
-      layout: mapLayout(s.layout, (l) => (l.id === paneId ? { ...l, sessionId } : l)),
+    return updateGroup(s, (g) => ({
+      layout: mapLayout(g.layout, (l) => (l.id === paneId ? { ...l, sessionId } : l)),
       focusedPane: paneId,
-    }
+    }))
   }),
 
   showSession: (sessionId) => {
     const s = get()
-    const elsewhere = paneOfSession(s.layout, sessionId)
-    if (elsewhere) set({ focusedPane: elsewhere })
-    else s.setPaneSession(s.focusedPane, sessionId)
+    const other = groupOfSession(s.groups, sessionId)
+    if (other) {
+      const pane = paneOfSession(other.layout, sessionId)!
+      set({ activeGroup: other.id, ...updateGroup(s, () => ({ focusedPane: pane }), other.id) })
+    } else {
+      s.setPaneSession(selectFocusedPane(s), sessionId)
+    }
   },
 }))
 

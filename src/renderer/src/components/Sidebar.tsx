@@ -1,23 +1,71 @@
-import { Plus, MessageSquare, X, Folder, Columns2, Rows2 } from 'lucide-react'
-import { useStore, leaves } from '../store'
+import { useState } from 'react'
+import { Plus, MessageSquare, X, Folder, Columns2, Rows2, LayoutGrid } from 'lucide-react'
+import { useStore, leaves, selectActiveGroup, groupOfSession } from '../store'
 
 function basename(p: string) {
   const parts = p.replace(/[\\/]+$/, '').split(/[\\/]/)
   return parts[parts.length - 1] || p
 }
 
+function GroupTab({ id, name, index, active, closable }: { id: string; name: string; index: number; active: boolean; closable: boolean }) {
+  const switchGroup = useStore((s) => s.switchGroup)
+  const removeGroup = useStore((s) => s.removeGroup)
+  const renameGroup = useStore((s) => s.renameGroup)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(name)
+
+  const commit = () => { setEditing(false); renameGroup(id, draft) }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(name); setEditing(false) } }}
+        className="h-7 w-24 px-2 rounded-md bg-bg border border-accent text-[12px] outline-none"
+      />
+    )
+  }
+  return (
+    <div
+      onClick={() => switchGroup(id)}
+      onDoubleClick={() => { setDraft(name); setEditing(true) }}
+      title={`${name} (Ctrl+${index + 1}) · dvoklik za preimenovanje`}
+      className={`group/tab relative flex items-center gap-1 h-7 pl-2 pr-1.5 rounded-md text-[12px] cursor-pointer select-none whitespace-nowrap transition
+        ${active ? 'bg-bg-elev2 text-fg border border-border-strong' : 'text-fg-muted hover:text-fg hover:bg-bg-elev2/60 border border-transparent'}`}
+    >
+      <span className="text-[10px] text-fg-faint">{index + 1}</span>
+      <span className="max-w-[88px] truncate">{name}</span>
+      {closable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); removeGroup(id) }}
+          title="Zatvori grupu (Ctrl+Shift+W)"
+          className="w-4 h-4 rounded flex items-center justify-center text-fg-faint hover:text-danger opacity-0 group-hover/tab:opacity-100"
+        >
+          <X size={11} />
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function Sidebar() {
   const order = useStore((s) => s.order)
   const sessions = useStore((s) => s.sessions)
-  const layout = useStore((s) => s.layout)
-  const focusedPane = useStore((s) => s.focusedPane)
+  const groups = useStore((s) => s.groups)
+  const activeGroup = useStore((s) => s.activeGroup)
+  const group = useStore(selectActiveGroup)
+  const addGroup = useStore((s) => s.addGroup)
   const showSession = useStore((s) => s.showSession)
   const setPaneSession = useStore((s) => s.setPaneSession)
   const splitPane = useStore((s) => s.splitPane)
   const removeSession = useStore((s) => s.removeSession)
 
-  const visible = new Map(leaves(layout).filter((l) => l.sessionId).map((l) => [l.sessionId as string, l.id]))
-  const focusedLeaf = leaves(layout).find((l) => l.id === focusedPane)
+  const focusedPane = group.focusedPane
+  const visible = new Map(leaves(group.layout).filter((l) => l.sessionId).map((l) => [l.sessionId as string, l.id]))
+  const focusedLeaf = leaves(group.layout).find((l) => l.id === focusedPane)
   const welcomeActive = !!focusedLeaf && !focusedLeaf.sessionId
 
   const close = async (e: React.MouseEvent, id: string) => {
@@ -34,7 +82,21 @@ export default function Sidebar() {
         <span className="text-accent mr-1.5">●</span> aimux
       </div>
 
-      <div className="px-3 pb-2 flex gap-1.5">
+      <div className="px-3 pb-2">
+        <div className="flex items-center gap-1 text-[10.5px] uppercase tracking-wider text-fg-faint mb-1.5">
+          <LayoutGrid size={11} /> Grupe
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {groups.map((g, i) => (
+            <GroupTab key={g.id} id={g.id} name={g.name} index={i} active={g.id === activeGroup} closable={groups.length > 1} />
+          ))}
+          <button onClick={addGroup} title="Nova grupa (Ctrl+T)" className="h-7 w-7 rounded-md flex items-center justify-center text-fg-muted hover:text-fg hover:bg-bg-elev2 border border-transparent">
+            <Plus size={14} />
+          </button>
+        </div>
+      </div>
+
+      <div className="px-3 pb-2 flex gap-1.5 border-t border-border pt-2">
         <button
           onClick={() => setPaneSession(focusedPane, null)}
           title="Novi razgovor (Ctrl+N)"
@@ -56,6 +118,7 @@ export default function Sidebar() {
           if (!s) return null
           const paneId = visible.get(id)
           const active = paneId === focusedPane
+          const otherGroup = paneId ? null : groupOfSession(groups, id)
           return (
             <div
               key={id}
@@ -72,6 +135,7 @@ export default function Sidebar() {
                 <div className="truncate text-[13px] leading-tight">{s.meta.title}</div>
                 <div className="truncate text-[11px] text-fg-faint flex items-center gap-1 mt-0.5">
                   <Folder size={10} /> {basename(s.meta.cwd)}
+                  {otherGroup && <span className="ml-1 text-fg-faint">· {otherGroup.name}</span>}
                   {s.pending.length > 0 && <span className="ml-1 text-warn">● čeka odobrenje</span>}
                   {s.meta.ended && <span className="ml-1">· završeno</span>}
                 </div>
@@ -89,7 +153,7 @@ export default function Sidebar() {
       </div>
 
       <div className="px-4 py-2 text-[10.5px] text-fg-faint border-t border-border leading-relaxed">
-        Ctrl+N novi · Ctrl+\ split · Ctrl+W zatvori panel · Ctrl+B browser
+        Ctrl+T nova grupa · Ctrl+1-9 grupa · Ctrl+Tab sljedeća · Ctrl+N novi · Ctrl+\ split · Ctrl+W zatvori panel · Ctrl+B browser
       </div>
     </aside>
   )

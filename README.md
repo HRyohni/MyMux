@@ -14,10 +14,28 @@ npm run typecheck
 npm run dist     # Windows instaler -> dist/aimux Setup x.y.z.exe
 ```
 
+## Grupe i paneli
+
+Sidebar na vrhu prikazuje grupe. Svaka grupa je zaseban raspored panela (npr. 3 razgovora u jednoj grupi, 3 druga u drugoj).
+Klik na karticu prebacuje grupu, dvoklik je preimenuje, X je zatvara. Razgovori su globalni: klik na razgovor u sidebaru
+skače u grupu i panel gdje je otvoren, ili ga otvara u fokusiranom panelu aktivne grupe.
+
+Gumbi prozora (minimiziraj, maksimiziraj, zatvori) su dio aplikacije i uvijek su gore desno, neovisno o panelima.
+
+## Početni ekran
+
+- **Radna mapa**: upiši putanju ili klikni *Odaberi*. Zvjezdica dodaje mapu u omiljene; ispod polja se prikazuju omiljene (zvjezdica) i nedavno korištene mape (sat) kao brzi pristup.
+- **Nastavi gdje si stao**: zadnji otvoreni razgovori iz ove aplikacije.
+- **Prijašnje sesije**: sve Claude Code sesije za mapu (ili sve mape), s pretragom.
+
 ## Prečaci
 
 | Tipke | Akcija |
 |---|---|
+| Ctrl+T | nova grupa (svaka grupa ima svoj raspored panela) |
+| Ctrl+1 … Ctrl+9 | prebaci na grupu |
+| Ctrl+Tab / Ctrl+Shift+Tab | sljedeća / prethodna grupa |
+| Ctrl+Shift+W | zatvori grupu (razgovori ostaju u sidebaru) |
 | Ctrl+N | novi razgovor u fokusiranom panelu |
 | Ctrl+\ | podijeli panel desno |
 | Ctrl+Shift+\ | podijeli panel dolje |

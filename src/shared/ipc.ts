@@ -58,8 +58,17 @@ export interface BrowserApi {
   onActivity(cb: (sessionId: string) => void): () => void
 }
 
+export interface WindowApi {
+  minimize(): Promise<void>
+  toggleMaximize(): Promise<void>
+  close(): Promise<void>
+  isMaximized(): Promise<boolean>
+  onMaximized(cb: (maximized: boolean) => void): () => void
+}
+
 export interface AimuxApi {
   browser: BrowserApi
+  window: WindowApi
   createSession(opts: { cwd: string; resume?: string; permissionMode?: PermissionMode }): Promise<SessionMeta>
   send(sessionId: string, text: string): Promise<void>
   interrupt(sessionId: string): Promise<void>

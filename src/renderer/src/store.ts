@@ -11,7 +11,7 @@ export type Block =
   | { type: 'tool_use'; id: string; name: string; input: unknown; inputJson: string; result?: ToolResult; subLog?: string[] }
 
 export type ChatItem =
-  | { kind: 'user'; id: string; text: string }
+  | { kind: 'user'; id: string; text: string; images?: string[] }
   | { kind: 'assistant'; id: string; blocks: Block[]; streaming: boolean }
   | { kind: 'result'; id: string; costUsd: number; durationMs: number; turns: number; isError: boolean; text?: string }
   | { kind: 'info'; id: string; text: string; level: 'info' | 'error' }
@@ -39,6 +39,10 @@ interface Store {
   order: string[]
   groups: Group[]
   activeGroup: string
+  sidebarCollapsed: boolean
+  toggleSidebar(): void
+  soundOn: boolean
+  toggleSound(): void
   // groups
   addGroup(): void
   removeGroup(id: string): void
@@ -255,8 +259,13 @@ function reduce(items: ChatItem[], msg: SDKMessage): ChatItem[] {
         tool_use_id: string; content: unknown; is_error?: boolean
       }>
       if (results.length === 0) {
-        const text = contentToText(content)
-        return text.trim() ? [...items, { kind: 'user', id: nid(), text }] : items
+        const blocks = content as Array<{ type: string; text?: string; source?: { type?: string; media_type?: string; data?: string } }>
+        const text = blocks.filter((b) => b.type === 'text').map((b) => b.text ?? '').join('\n')
+        const images = blocks
+          .filter((b) => b.type === 'image' && b.source?.type === 'base64' && b.source.data)
+          .map((b) => `data:${b.source!.media_type};base64,${b.source!.data}`)
+        if (!text.trim() && images.length === 0) return items
+        return [...items, { kind: 'user', id: nid(), text, images: images.length ? images : undefined }]
       }
       return items.map((it) => {
         if (it.kind !== 'assistant') return it
@@ -308,6 +317,20 @@ export const useStore = create<Store>((set, get) => ({
   order: [],
   groups: [{ id: rootGroup, name: 'Grupa 1', layout: { kind: 'leaf', id: rootPane, sessionId: null }, focusedPane: rootPane }],
   activeGroup: rootGroup,
+  sidebarCollapsed: (() => { try { return localStorage.getItem('aimux.sidebarCollapsed') === '1' } catch { return false } })(),
+
+  toggleSidebar: () => set((s) => {
+    const next = !s.sidebarCollapsed
+    try { localStorage.setItem('aimux.sidebarCollapsed', next ? '1' : '0') } catch { /* ignore */ }
+    return { sidebarCollapsed: next }
+  }),
+
+  soundOn: (() => { try { return localStorage.getItem('aimux.sound') !== '0' } catch { return true } })(),
+  toggleSound: () => set((s) => {
+    const next = !s.soundOn
+    try { localStorage.setItem('aimux.sound', next ? '1' : '0') } catch { /* ignore */ }
+    return { soundOn: next }
+  }),
 
   addGroup: () => set((s) => {
     const pane = nid()

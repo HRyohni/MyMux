@@ -28,7 +28,7 @@ const api: AimuxApi = {
     onActivity: (cb) => on<[string]>('browser:activity', cb),
   },
   createSession: (opts) => ipcRenderer.invoke('session:create', opts),
-  send: (id, text) => ipcRenderer.invoke('session:send', id, text),
+  send: (id, text, images) => ipcRenderer.invoke('session:send', id, text, images),
   interrupt: (id) => ipcRenderer.invoke('session:interrupt', id),
   setPermissionMode: (id, mode) => ipcRenderer.invoke('session:setPermissionMode', id, mode),
   closeSession: (id) => ipcRenderer.invoke('session:close', id),

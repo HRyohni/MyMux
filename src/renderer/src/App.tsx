@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
 import Welcome, { openSession } from './components/Welcome'
 import WindowControls from './components/WindowControls'
+import { playDone } from './sound'
 
 function PaneTree({ layout }: { layout: Layout }) {
   const focusedPane = useStore(selectFocusedPane)
@@ -43,7 +44,10 @@ export default function App() {
   useEffect(() => {
     const st = useStore.getState()
     const offs = [
-      window.aimux.onMessage((sid, msg) => st.applyMessage(sid, msg)),
+      window.aimux.onMessage((sid, msg) => {
+        st.applyMessage(sid, msg)
+        if (msg.type === 'result' && useStore.getState().soundOn) playDone(msg.is_error)
+      }),
       window.aimux.onMeta((meta) => st.applyMeta(meta)),
       window.aimux.onPermission((req) => st.addPermission(req)),
       window.aimux.onError((sid, err) => st.addInfo(sid, err, 'error')),
@@ -53,6 +57,7 @@ export default function App() {
         const s = useStore.getState()
         if (cmd.type === 'resume') void openSession(selectFocusedPane(s), { cwd: cmd.cwd, resume: cmd.sdkSessionId })
         else if (cmd.type === 'split') s.splitPane(selectFocusedPane(s), cmd.dir)
+        else if (cmd.type === 'toggleSidebar') s.toggleSidebar()
       }),
     ]
     return () => offs.forEach((off) => off())
@@ -81,6 +86,7 @@ export default function App() {
       else if (key === '\\' && !e.shiftKey) { e.preventDefault(); s.splitPane(pane, 'horizontal') }
       else if (key === '\\' && e.shiftKey) { e.preventDefault(); s.splitPane(pane, 'vertical') }
       else if (key === 'w') { e.preventDefault(); s.closePane(pane) }
+      else if (key === 'b' && e.shiftKey) { e.preventDefault(); s.toggleSidebar() }
       else if (key === 'b' && leaf?.sessionId) {
         e.preventDefault()
         s.setBrowserOpen(leaf.sessionId, !s.sessions[leaf.sessionId]?.browserOpen)

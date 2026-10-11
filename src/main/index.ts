@@ -6,7 +6,25 @@ import { createServer } from 'node:net'
 import { AgentManager } from './agent'
 import { CdpConnection, enableRemoteDebugging } from './browser'
 import { VIEWABLE_EXTENSIONS } from './documents'
-import type { PermissionAnswer, PermissionMode, Rect } from '../shared/ipc'
+import type { PermissionAnswer, PermissionMode, Rect, ImageAttachment } from '../shared/ipc'
+import { readFileSync } from 'node:fs'
+
+app.setName('aimux')
+// Dev/test runs can use their own profile so they never touch a running instance's data.
+if (process.env.AIMUX_USER_DATA) app.setPath('userData', process.env.AIMUX_USER_DATA)
+
+// Two instances sharing one profile crash each other's renderer, so a second launch
+// just brings the running window to the front.
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+  process.exit(0)
+}
+app.on('second-instance', () => {
+  if (!win) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+})
 
 let win: BrowserWindow | null = null
 
@@ -93,11 +111,18 @@ function installDevHooks() {
     const meta = agents.createSession({ cwd: process.env.AIMUX_CWD ?? process.cwd(), permissionMode: 'default' })
     devSession = meta.id
     win?.webContents.send('agent:meta', meta)
-    if (prompt) setTimeout(() => agents.send(meta.id, prompt), 300)
+    if (prompt) setTimeout(() => {
+      const imgPath = process.env.AIMUX_AUTOIMAGE
+      const images = imgPath ? [{ mediaType: 'image/png', data: readFileSync(imgPath).toString('base64') }] : []
+      agents.send(meta.id, prompt, images)
+    }, 300)
     if (autoOpen) setTimeout(() => {
       win?.webContents.send('browser:activity', meta.id)
       void agents.browserOf(meta.id).openFile(autoOpen)
     }, 800)
+  }
+  if (process.env.AIMUX_TOGGLE_SIDEBAR) {
+    setTimeout(() => win?.webContents.send('dev:command', { type: 'toggleSidebar' }), Number(process.env.AIMUX_TOGGLE_SIDEBAR))
   }
   if (process.env.AIMUX_AUTOSPLIT) {
     win?.webContents.send('dev:command', { type: 'split', dir: process.env.AIMUX_AUTOSPLIT === 'vertical' ? 'vertical' : 'horizontal' })
@@ -136,7 +161,7 @@ function installDevHooks() {
 
 ipcMain.handle('session:create', (_e, opts: { cwd: string; resume?: string; permissionMode?: PermissionMode }) =>
   agents.createSession(opts))
-ipcMain.handle('session:send', (_e, id: string, text: string) => agents.send(id, text))
+ipcMain.handle('session:send', (_e, id: string, text: string, images?: ImageAttachment[]) => agents.send(id, text, images))
 ipcMain.handle('session:interrupt', (_e, id: string) => agents.interrupt(id))
 ipcMain.handle('session:setPermissionMode', (_e, id: string, mode: PermissionMode) => agents.setPermissionMode(id, mode))
 ipcMain.handle('session:close', (_e, id: string) => agents.closeSession(id))
@@ -175,7 +200,6 @@ ipcMain.handle('window:toggleMaximize', () => { if (!win) return; win.isMaximize
 ipcMain.handle('window:close', () => win?.close())
 ipcMain.handle('window:isMaximized', () => win?.isMaximized() ?? false)
 
-app.setName('aimux')
 app.whenReady().then(createWindow)
 app.on('window-all-closed', () => {
   agents.closeAll()

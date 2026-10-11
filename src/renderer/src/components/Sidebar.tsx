@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, MessageSquare, X, Folder, Columns2, Rows2, LayoutGrid } from 'lucide-react'
+import { Plus, MessageSquare, X, Folder, Columns2, Rows2, LayoutGrid, PanelLeftClose, PanelLeftOpen, Volume2, VolumeX } from 'lucide-react'
 import { useStore, leaves, selectActiveGroup, groupOfSession } from '../store'
 
 function basename(p: string) {
@@ -62,6 +62,12 @@ export default function Sidebar() {
   const setPaneSession = useStore((s) => s.setPaneSession)
   const splitPane = useStore((s) => s.splitPane)
   const removeSession = useStore((s) => s.removeSession)
+  const collapsed = useStore((s) => s.sidebarCollapsed)
+  const toggleSidebar = useStore((s) => s.toggleSidebar)
+  const switchGroup = useStore((s) => s.switchGroup)
+  const soundOn = useStore((s) => s.soundOn)
+  const toggleSound = useStore((s) => s.toggleSound)
+  const soundTitle = soundOn ? 'Zvuk kad Claude završi: uključen' : 'Zvuk kad Claude završi: isključen'
 
   const focusedPane = group.focusedPane
   const visible = new Map(leaves(group.layout).filter((l) => l.sessionId).map((l) => [l.sessionId as string, l.id]))
@@ -76,10 +82,40 @@ export default function Sidebar() {
 
   const iconBtn = 'w-7 h-7 rounded-md flex items-center justify-center text-fg-muted hover:text-fg hover:bg-bg-elev2'
 
+  if (collapsed) {
+    const waiting = Object.values(sessions).some((s) => s.pending.length > 0)
+    const running = Object.values(sessions).some((s) => s.meta.running)
+    return (
+      <aside className="w-11 shrink-0 flex flex-col items-center bg-bg-elev border-r border-border">
+        <div className="h-10 flex items-center">
+          <button onClick={toggleSidebar} title="Prikaži bočnu traku (Ctrl+Shift+B)" className={iconBtn}><PanelLeftOpen size={16} /></button>
+        </div>
+        <div className="flex flex-col items-center gap-1 pt-1">
+          {groups.map((g, i) => (
+            <button key={g.id} onClick={() => switchGroup(g.id)} title={`${g.name} (Ctrl+${i + 1})`}
+              className={`w-7 h-7 rounded-md text-[12px] flex items-center justify-center border transition
+                ${g.id === activeGroup ? 'bg-bg-elev2 text-fg border-border-strong' : 'text-fg-muted hover:text-fg hover:bg-bg-elev2/60 border-transparent'}`}>
+              {i + 1}
+            </button>
+          ))}
+          <button onClick={addGroup} title="Nova grupa (Ctrl+T)" className={iconBtn}><Plus size={14} /></button>
+        </div>
+        <div className="drag flex-1 w-full" />
+        <div className="pb-3 flex flex-col items-center gap-2">
+          <button onClick={toggleSound} title={soundTitle} className={iconBtn}>{soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}</button>
+          {waiting && <span title="Razgovor čeka odobrenje" className="w-2 h-2 rounded-full bg-warn pulse" />}
+          {running && <span title="Claude radi" className="w-3.5 h-3.5 rounded-full border-2 border-accent border-t-transparent animate-spin" />}
+        </div>
+      </aside>
+    )
+  }
+
   return (
     <aside className="w-64 shrink-0 flex flex-col bg-bg-elev border-r border-border">
-      <div className="drag h-10 flex items-center px-4 text-[13px] font-semibold tracking-wide text-fg-muted select-none">
+      <div className="drag h-10 flex items-center pl-4 pr-2 text-[13px] font-semibold tracking-wide text-fg-muted select-none">
         <span className="text-accent mr-1.5">●</span> aimux
+        <button onClick={toggleSound} title={soundTitle} className={`no-drag ml-auto ${iconBtn}`}>{soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}</button>
+        <button onClick={toggleSidebar} title="Sakrij bočnu traku (Ctrl+Shift+B)" className={`no-drag ${iconBtn}`}><PanelLeftClose size={16} /></button>
       </div>
 
       <div className="px-3 pb-2">
@@ -153,7 +189,7 @@ export default function Sidebar() {
       </div>
 
       <div className="px-4 py-2 text-[10.5px] text-fg-faint border-t border-border leading-relaxed">
-        Ctrl+T nova grupa · Ctrl+1-9 grupa · Ctrl+Tab sljedeća · Ctrl+N novi · Ctrl+\ split · Ctrl+W zatvori panel · Ctrl+B browser
+        Ctrl+T nova grupa · Ctrl+1-9 grupa · Ctrl+Tab sljedeća · Ctrl+N novi · Ctrl+\ split · Ctrl+W zatvori panel · Ctrl+B browser · Ctrl+Shift+B sakrij traku
       </div>
     </aside>
   )

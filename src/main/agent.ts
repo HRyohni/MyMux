@@ -3,7 +3,7 @@ import type {
   Query, SDKUserMessage, SDKMessage, PermissionMode, PermissionResult, CanUseTool, SDKSessionInfo,
 } from '@anthropic-ai/claude-agent-sdk'
 import { randomUUID } from 'node:crypto'
-import type { PermissionAnswer, PermissionRequest, SessionMeta, BrowserState, HistoryMessage } from '../shared/ipc'
+import type { PermissionAnswer, PermissionRequest, SessionMeta, BrowserState, HistoryMessage, ImageAttachment } from '../shared/ipc'
 import { SessionBrowser, type CdpConnection } from './browser'
 import { createBrowserTools } from './browserTools'
 import type { BrowserWindow } from 'electron'
@@ -96,6 +96,8 @@ export class AgentManager {
     }
 
     const canUseTool: CanUseTool = (toolName, toolInput, options) => {
+      // The app's own browser tools never need approval.
+      if (toolName.startsWith('mcp__aimux__')) return Promise.resolve({ behavior: 'allow', updatedInput: toolInput })
       const requestId = randomUUID()
       return new Promise<PermissionResult>((resolve) => {
         this.pendingPermissions.set(requestId, resolve)
@@ -125,7 +127,8 @@ export class AgentManager {
           append: 'Imaš browser panel koji korisnik vidi uživo u aplikaciji (alati mcp__aimux__browser_*). Koristi ga za web, PDF-ove i lokalne dokumente umjesto WebFetch-a kad korisnik želi nešto vidjeti.',
         },
         mcpServers: { aimux: browserTools },
-        allowedTools: ['mcp__aimux'],
+        // Only unlocks the "Bez pitanja" mode so the user can switch to it; the mode itself stays the user's choice.
+        allowDangerouslySkipPermissions: true,
         abortController: abort,
         stderr: (d) => console.error(`[claude ${id.slice(0, 8)}]`, d.trimEnd()),
       },
@@ -173,16 +176,23 @@ export class AgentManager {
     if (changed) this.events.onMeta({ ...s.meta })
   }
 
-  send(sessionId: string, text: string) {
+  send(sessionId: string, text: string, images: ImageAttachment[] = []) {
     const s = this.must(sessionId)
     if (s.meta.title === 'Novi razgovor') {
-      s.meta.title = text.replace(/\s+/g, ' ').slice(0, 60)
+      s.meta.title = text.replace(/\s+/g, ' ').slice(0, 60) || 'Slika'
     }
+    const content: SDKUserMessage['message']['content'] = images.length === 0 ? text : [
+      ...images.map((img) => ({
+        type: 'image' as const,
+        source: { type: 'base64' as const, media_type: img.mediaType as 'image/png', data: img.data },
+      })),
+      ...(text ? [{ type: 'text' as const, text }] : []),
+    ]
     s.meta.running = true
     this.events.onMeta({ ...s.meta })
     const msg: SDKUserMessage = {
       type: 'user',
-      message: { role: 'user', content: text },
+      message: { role: 'user', content },
       parent_tool_use_id: null,
     }
     // The SDK does not echo prompts back, so the UI learns about them from here.

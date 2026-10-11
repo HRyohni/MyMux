@@ -44,8 +44,19 @@ export default function Message({ item }: { item: ChatItem }) {
   if (item.kind === 'user') {
     return (
       <div className="flex justify-end fade-in">
-        <div className="max-w-[80%] bg-user rounded-2xl rounded-tr-md px-4 py-2.5 whitespace-pre-wrap text-[14.5px] leading-relaxed">
-          {item.text}
+        <div className="max-w-[80%] flex flex-col items-end gap-2">
+          {item.images && (
+            <div className="flex flex-wrap justify-end gap-2">
+              {item.images.map((src, i) => (
+                <img key={i} src={src} alt="Priložena slika" className="max-h-64 max-w-full rounded-xl border border-border" />
+              ))}
+            </div>
+          )}
+          {item.text.trim() && (
+            <div className="bg-user rounded-2xl rounded-tr-md px-4 py-2.5 whitespace-pre-wrap text-[14.5px] leading-relaxed">
+              {item.text}
+            </div>
+          )}
         </div>
       </div>
     )

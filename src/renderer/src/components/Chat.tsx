@@ -37,8 +37,14 @@ export default function Chat({ sessionId, paneId }: { sessionId: string; paneId:
   if (!session) return null
   const { meta, browserOpen } = session
 
-  const changeMode = (mode: PermissionMode) => { void window.aimux.setPermissionMode(sessionId, mode) }
-  const changeModel = (model: string) => { void window.aimux.setModel(sessionId, model || undefined) }
+  const addInfo = useStore.getState().addInfo
+  const short = (e: unknown) => String(e instanceof Error ? e.message : e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  const changeMode = (mode: PermissionMode) => {
+    window.aimux.setPermissionMode(sessionId, mode).catch((e) => addInfo(sessionId, `Način odobravanja nije promijenjen: ${short(e)}`, 'error'))
+  }
+  const changeModel = (model: string) => {
+    window.aimux.setModel(sessionId, model || undefined).catch((e) => addInfo(sessionId, `Model nije promijenjen: ${short(e)}`, 'error'))
+  }
   const modelValue = MODELS.some((m) => m.value === meta.model) ? meta.model : ''
 
   const iconBtn = 'w-7 h-7 rounded-md flex items-center justify-center text-fg-muted hover:text-fg hover:bg-bg-elev2'

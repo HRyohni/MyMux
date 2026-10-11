@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useWindowControlsInset } from '../hooks'
 import { FolderOpen, History, ArrowRight, Search, RotateCcw, Star, X, Clock } from 'lucide-react'
-import { useStore, PERMISSION_MODES, readRecent, type RecentEntry } from '../store'
+import { useStore, PERMISSION_MODES, readRecent, leaves, selectLayout, type RecentEntry } from '../store'
 import type { SDKSessionInfo, PermissionMode } from '../../../shared/ipc'
 
 const readList = (key: string): string[] => { try { return JSON.parse(localStorage.getItem(key) ?? '[]') } catch { return [] } }
@@ -20,8 +20,17 @@ export async function openSession(paneId: string, opts: { cwd: string; resume?: 
     try {
       const history = await window.aimux.getHistory(opts.resume, opts.cwd)
       useStore.getState().loadHistory(meta.id, history)
-      const firstUser = history.find((m) => m.type === 'user' && typeof (m.message as { content?: unknown })?.content === 'string')
-      const text = firstUser ? String((firstUser.message as { content: string }).content) : ''
+      // First real prompt: plain string, or the text block of a message that also carries images.
+      let text = ''
+      for (const m of history) {
+        if (m.type !== 'user') continue
+        const c = (m.message as { content?: unknown })?.content
+        if (typeof c === 'string') text = c
+        else if (Array.isArray(c) && !c.some((b) => (b as { type: string }).type === 'tool_result')) {
+          text = c.filter((b) => (b as { type: string }).type === 'text').map((b) => (b as { text?: string }).text ?? '').join(' ') || 'Slika'
+        }
+        if (text.trim()) break
+      }
       if (text) useStore.getState().applyMeta({ ...meta, title: text.replace(/\s+/g, ' ').slice(0, 60) })
     } catch (e) {
       useStore.getState().addInfo(meta.id, `Povijest nije učitana: ${String(e)}`, 'error')
@@ -40,6 +49,8 @@ export default function Welcome({ paneId }: { paneId: string }) {
   const [lastOpen, setLastOpen] = useState<RecentEntry[]>([])
   const openSessions = useStore((s) => s.sessions)
   const topRef = useRef<HTMLDivElement>(null)
+  const multi = useStore((s) => leaves(selectLayout(s)).length > 1)
+  const closePane = useStore((s) => s.closePane)
   const controlsInset = useWindowControlsInset(topRef)
   const [favs, setFavs] = useState<string[]>(() => readList(FAV_KEY))
   const [recentDirs, setRecentDirs] = useState<string[]>(() => readList(RECENT_DIRS_KEY))
@@ -103,6 +114,12 @@ export default function Welcome({ paneId }: { paneId: string }) {
     <div className="flex-1 flex flex-col min-h-0">
       <div ref={topRef} className="h-10 shrink-0 flex">
         <div className="drag flex-1" />
+        {multi && (
+          <button onClick={() => closePane(paneId)} title="Zatvori panel (Ctrl+W)"
+            className="no-drag shrink-0 self-center mr-1.5 w-7 h-7 rounded-md flex items-center justify-center text-fg-muted hover:text-danger hover:bg-bg-elev2">
+            <X size={15} />
+          </button>
+        )}
         <div className="no-drag shrink-0" style={{ width: controlsInset }} />
       </div>
       <div className="flex-1 overflow-y-auto">

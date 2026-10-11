@@ -15,6 +15,9 @@ export interface SessionMeta {
   createdAt: number
 }
 
+/** An image attached to a prompt: base64 payload without the data: prefix. */
+export interface ImageAttachment { mediaType: string; data: string }
+
 export interface HistoryMessage {
   type: 'user' | 'assistant' | 'system'
   message: unknown
@@ -70,7 +73,7 @@ export interface AimuxApi {
   browser: BrowserApi
   window: WindowApi
   createSession(opts: { cwd: string; resume?: string; permissionMode?: PermissionMode }): Promise<SessionMeta>
-  send(sessionId: string, text: string): Promise<void>
+  send(sessionId: string, text: string, images?: ImageAttachment[]): Promise<void>
   interrupt(sessionId: string): Promise<void>
   setPermissionMode(sessionId: string, mode: PermissionMode): Promise<void>
   closeSession(sessionId: string): Promise<void>
@@ -91,3 +94,4 @@ export interface AimuxApi {
 export type DevCommand =
   | { type: 'resume'; sdkSessionId: string; cwd: string }
   | { type: 'split'; dir: 'horizontal' | 'vertical' }
+  | { type: 'toggleSidebar' }

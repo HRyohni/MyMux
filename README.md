@@ -36,12 +36,15 @@ Gumbi prozora (minimiziraj, maksimiziraj, zatvori) su dio aplikacije i uvijek su
 | Ctrl+1 … Ctrl+9 | prebaci na grupu |
 | Ctrl+Tab / Ctrl+Shift+Tab | sljedeća / prethodna grupa |
 | Ctrl+Shift+W | zatvori grupu (razgovori ostaju u sidebaru) |
+| Ctrl+Shift+B | sakrij / prikaži bočnu traku |
 | Ctrl+N | novi razgovor u fokusiranom panelu |
 | Ctrl+\ | podijeli panel desno |
 | Ctrl+Shift+\ | podijeli panel dolje |
 | Ctrl+W | zatvori fokusirani panel (razgovor ostaje u sidebaru) |
 | Ctrl+B | prikaži/sakrij browser panel |
 | Enter / Shift+Enter | pošalji / novi red |
+
+Kad Claude završi odgovor, čuje se kratak zvuk (dublji ton kod greške). Gumb sa zvučnikom u bočnoj traci ga uključuje i isključuje.
 
 Koristi istu prijavu, model, postavke, CLAUDE.md i hookove kao tvoj Claude Code CLI
 (`settingSources: user, project, local`).
@@ -69,6 +72,11 @@ Koristi istu prijavu, model, postavke, CLAUDE.md i hookove kao tvoj Claude Code 
 | `AIMUX_AUTOANSWER=allow\|deny` | automatski odgovara na zahtjeve za odobrenje (`AIMUX_AUTOANSWER_DELAY` ms) |
 | `AIMUX_SCREENSHOT=put.png` | snimi prozor nakon `AIMUX_SCREENSHOT_DELAY` ms (više vrijednosti odvojenih zarezom) |
 | `AIMUX_DEBUG=1` | ispisuje tipove SDK poruka u konzolu |
+| `AIMUX_USER_DATA=mapa` | zaseban profil (localStorage, cache), da test ne dira pokrenutu aplikaciju |
+| `AIMUX_AUTOIMAGE=put.png` | priloži sliku uz `AIMUX_AUTOPROMPT` |
+| `AIMUX_TOGGLE_SIDEBAR=ms` | sklopi/rasklopi bočnu traku nakon zadanog vremena |
+
+Aplikacija je single-instance: drugo pokretanje s istim profilom samo fokusira postojeći prozor.
 
 ## Napomene o SDK-u (naučeno u fazi 1)
 

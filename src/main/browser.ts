@@ -140,5 +140,7 @@ export class CdpConnection {
 
 export function enableRemoteDebugging(port: number) {
   app.commandLine.appendSwitch('remote-debugging-port', String(port))
+  // Lets the "done" chime play even if the window has not been clicked yet.
+  app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
   app.commandLine.appendSwitch('remote-allow-origins', `http://127.0.0.1:${port}`)
 }

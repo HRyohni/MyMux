@@ -31,7 +31,7 @@ const SNAPSHOT_SCRIPT = `(() => {
 })()`
 
 /** Builds the per-session MCP server that exposes the visible browser panel to Claude. */
-export function createBrowserTools(b: SessionBrowser, onActivity: () => void) {
+export function createBrowserTools(b: SessionBrowser, onActivity: () => void, extraTools: NonNullable<Parameters<typeof createSdkMcpServer>[0]['tools']> = []) {
   const ref = (r: string) => `[data-aimux-ref="${r}"]`
   const act = <T,>(fn: () => Promise<T>) => { onActivity(); return fn() }
 
@@ -140,7 +140,17 @@ export function createBrowserTools(b: SessionBrowser, onActivity: () => void) {
     tool('browser_back', 'Vrati se na prethodnu stranicu.', {},
       () => act(async () => { b.back(); await b.waitSettled(); return text(await snapshot()) })),
 
-    tool('browser_wait', 'Pričekaj zadani broj milisekundi ili dok se ne pojavi CSS selektor.',
+    tool('browser_tabs', 'Upravljaj tabovima browser panela: popis (list), novi tab (new, opcionalno s URL-om), prebaci (select) ili zatvori (close) tab po id-u. Ostali browser alati rade na aktivnom tabu.',
+      { action: z.enum(['list', 'new', 'select', 'close']), id: z.string().optional(), url: z.string().optional() },
+      (a) => act(async () => {
+        if (a.action === 'new') { b.newTab(a.url); if (a.url) await b.waitSettled() }
+        else if (a.action === 'select' && a.id) b.selectTab(a.id)
+        else if (a.action === 'close' && a.id) b.closeTab(a.id)
+        const list = b.tabList().map((t) => `${t.active ? '*' : ' '} [${t.id}] ${t.title || '(prazno)'} ${t.url}`)
+        return text(`Tabovi (* = aktivni):\n${list.join('\n')}`)
+      })),
+
+    tool('browser_wait','Pričekaj zadani broj milisekundi ili dok se ne pojavi CSS selektor.',
       { ms: z.number().int().min(50).max(30000).optional(), selector: z.string().optional() },
       (a) => act(async () => {
         const p = await b.getPage()
@@ -167,5 +177,5 @@ export function createBrowserTools(b: SessionBrowser, onActivity: () => void) {
     ].join('\n')
   }
 
-  return createSdkMcpServer({ name: 'aimux', version: '0.1.0', tools })
+  return createSdkMcpServer({ name: 'aimux', version: '0.1.0', tools: [...tools, ...extraTools] })
 }

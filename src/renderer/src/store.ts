@@ -1,38 +1,33 @@
 import { create } from 'zustand'
 import type {
-  SDKMessage, SessionMeta, PermissionRequest, PermissionMode, BrowserState, HistoryMessage,
+  SDKMessage, SessionMeta, PermissionRequest, PermissionMode, BrowserState, HistoryMessage, DownloadInfo, ModelOption,
+  EffortLevel, ElicitationRequest,
 } from '../../shared/ipc'
+import { reduce, nid, withSubagent, type ChatItem } from './reducer'
+import {
+  leaves, mapLayout, removeLeaf, paneOfSession, groupOfSession, serializeWorkspace, type Group, type Layout,
+} from './layout'
 
-export type ToolResult = { text: string; isError: boolean }
-
-export type Block =
-  | { type: 'text'; text: string }
-  | { type: 'thinking'; text: string }
-  | { type: 'tool_use'; id: string; name: string; input: unknown; inputJson: string; result?: ToolResult; subLog?: string[] }
-
-export type ChatItem =
-  | { kind: 'user'; id: string; text: string; images?: string[] }
-  | { kind: 'assistant'; id: string; blocks: Block[]; streaming: boolean }
-  | { kind: 'result'; id: string; costUsd: number; durationMs: number; turns: number; isError: boolean; text?: string }
-  | { kind: 'info'; id: string; text: string; level: 'info' | 'error' }
+export type { ChatItem, Block, ToolResult, ToolBlock } from './reducer'
+export type { Layout, Group } from './layout'
+export { leaves, paneOfSession, groupOfSession }
 
 export interface SessionState {
   meta: SessionMeta
   items: ChatItem[]
   pending: PermissionRequest[]
+  /** MCP servers waiting for the user's input. */
+  elicitations: ElicitationRequest[]
   browser: BrowserState | null
   browserOpen: boolean
+  downloads: DownloadInfo[]
+  /** Text to put into the composer (edit of an earlier message); the nonce makes repeats distinct. */
+  draft?: { text: string; nonce: number }
+  findOpen: boolean
+  browserFindOpen: boolean
 }
 
-/** Binary split tree, like a terminal multiplexer. */
-export type Layout =
-  | { kind: 'leaf'; id: string; sessionId: string | null }
-  | { kind: 'split'; id: string; dir: 'horizontal' | 'vertical'; a: Layout; b: Layout }
-
 export interface RecentEntry { sdkSessionId: string; cwd: string; title: string; at: number }
-
-/** A group is an independent pane layout (like a tmux window / wmux workspace). */
-export interface Group { id: string; name: string; layout: Layout; focusedPane: string }
 
 interface Store {
   sessions: Record<string, SessionState>
@@ -41,15 +36,26 @@ interface Store {
   activeGroup: string
   sidebarCollapsed: boolean
   toggleSidebar(): void
-  soundOn: boolean
-  toggleSound(): void
+  /** Open modal dialogs. The embedded browser views draw above the DOM, so they hide while this is > 0. */
+  overlays: number
+  pushOverlay(): void
+  popOverlay(): void
+  settingsOpen: boolean
+  setSettingsOpen(open: boolean): void
+  overviewOpen: boolean
+  setOverviewOpen(open: boolean): void
+  /** Models the CLI offers, learned from the first live session. */
+  models: ModelOption[]
+  setModels(models: ModelOption[]): void
   // groups
   addGroup(): void
   removeGroup(id: string): void
   switchGroup(id: string): void
   renameGroup(id: string, name: string): void
+  /** Replaces the layout wholesale (workspace restore). */
+  hydrate(groups: Group[], activeGroup: string, order: string[]): void
   // sessions
-  addSession(meta: SessionMeta, paneId?: string): void
+  addSession(meta: SessionMeta, paneId?: string | null, browserOpen?: boolean): void
   removeSession(id: string): void
   applyMeta(meta: SessionMeta): void
   applyMessage(sessionId: string, msg: SDKMessage): void
@@ -57,47 +63,31 @@ interface Store {
   addInfo(sessionId: string, text: string, level?: 'info' | 'error'): void
   addPermission(req: PermissionRequest): void
   resolvePermission(sessionId: string, requestId: string): void
+  addElicitation(req: ElicitationRequest): void
+  resolveElicitation(sessionId: string, requestId: string): void
+  /** Attaches a stored subagent transcript to its Agent call. */
+  loadSubagent(sessionId: string, toolId: string, msgs: HistoryMessage[]): void
   applyBrowserState(state: BrowserState): void
   setBrowserOpen(sessionId: string, open: boolean): void
+  applyDownload(d: DownloadInfo): void
+  clearDownloads(sessionId: string): void
+  setDraft(sessionId: string, text: string): void
+  setFindOpen(sessionId: string, open: boolean): void
+  setBrowserFindOpen(sessionId: string, open: boolean): void
   // panes
   focusPane(paneId: string): void
-  splitPane(paneId: string, dir: 'horizontal' | 'vertical'): void
+  splitPane(paneId: string, dir: 'horizontal' | 'vertical'): string
   closePane(paneId: string): void
   setPaneSession(paneId: string, sessionId: string | null): void
+  /** Shows a session in the given pane, taking it out of whichever pane had it (drag and drop). */
+  moveSession(sessionId: string, paneId: string): void
   showSession(sessionId: string): void
-}
-
-let counter = 0
-const nid = () => `i${Date.now().toString(36)}${(counter++).toString(36)}`
-
-// ---------------------------------------------------------------------------
-// Layout helpers
-
-export function leaves(l: Layout): Extract<Layout, { kind: 'leaf' }>[] {
-  return l.kind === 'leaf' ? [l] : [...leaves(l.a), ...leaves(l.b)]
-}
-function mapLayout(l: Layout, fn: (leaf: Extract<Layout, { kind: 'leaf' }>) => Layout): Layout {
-  return l.kind === 'leaf' ? fn(l) : { ...l, a: mapLayout(l.a, fn), b: mapLayout(l.b, fn) }
-}
-function removeLeaf(l: Layout, id: string): Layout | null {
-  if (l.kind === 'leaf') return l.id === id ? null : l
-  const a = removeLeaf(l.a, id)
-  const b = removeLeaf(l.b, id)
-  if (a && b) return { ...l, a, b }
-  return a ?? b
-}
-export function paneOfSession(l: Layout, sessionId: string): string | null {
-  return leaves(l).find((x) => x.sessionId === sessionId)?.id ?? null
 }
 
 export const selectActiveGroup = (s: { groups: Group[]; activeGroup: string }): Group =>
   s.groups.find((g) => g.id === s.activeGroup) ?? s.groups[0]
 export const selectLayout = (s: { groups: Group[]; activeGroup: string }) => selectActiveGroup(s).layout
 export const selectFocusedPane = (s: { groups: Group[]; activeGroup: string }) => selectActiveGroup(s).focusedPane
-/** Which group shows a session, if any. */
-export function groupOfSession(groups: Group[], sessionId: string): Group | null {
-  return groups.find((g) => paneOfSession(g.layout, sessionId)) ?? null
-}
 
 // ---------------------------------------------------------------------------
 // Recent sessions (persisted for "restore" on the welcome screen)
@@ -113,187 +103,8 @@ function rememberRecent(meta: SessionMeta) {
     localStorage.setItem('aimux.recent', JSON.stringify(list.slice(0, 20)))
   } catch { /* storage unavailable */ }
 }
-
-// ---------------------------------------------------------------------------
-// Message reduction
-
-function contentToText(content: unknown): string {
-  if (typeof content === 'string') return content
-  if (Array.isArray(content)) {
-    return content
-      .map((c) => {
-        if (c && typeof c === 'object' && 'type' in c) {
-          const b = c as { type: string; text?: string }
-          if (b.type === 'text') return b.text ?? ''
-          if (b.type === 'image') return '[slika]'
-        }
-        return ''
-      })
-      .join('\n')
-  }
-  if (content == null) return ''
-  try { return JSON.stringify(content, null, 2) } catch { return String(content) }
-}
-
-function apiBlocksToBlocks(content: unknown[], prev: Block[]): Block[] {
-  const prevTools = new Map(prev.flatMap((b) => (b.type === 'tool_use' ? [[b.id, b] as const] : [])))
-  const out: Block[] = []
-  for (const raw of content) {
-    const b = raw as { type: string; text?: string; thinking?: string; id?: string; name?: string; input?: unknown }
-    if (b.type === 'text') out.push({ type: 'text', text: b.text ?? '' })
-    else if (b.type === 'thinking') out.push({ type: 'thinking', text: b.thinking ?? '' })
-    else if (b.type === 'tool_use' && b.id) {
-      const old = prevTools.get(b.id)
-      out.push({
-        type: 'tool_use', id: b.id, name: b.name ?? 'tool', input: b.input,
-        inputJson: JSON.stringify(b.input ?? {}), result: old?.result, subLog: old?.subLog,
-      })
-    }
-  }
-  return out
-}
-
-function shortToolSummary(name: string, input: unknown): string {
-  const i = (input ?? {}) as Record<string, unknown>
-  const first = ['description', 'command', 'file_path', 'pattern', 'url', 'query', 'path', 'ref']
-    .map((k) => (typeof i[k] === 'string' ? (i[k] as string) : undefined))
-    .find(Boolean)
-  return first ? `${name}: ${first.slice(0, 120)}` : name
-}
-
-/** Appends subagent activity to the parent Agent/Task tool block. */
-function appendSubLog(items: ChatItem[], parentId: string, lines: string[]): ChatItem[] {
-  if (lines.length === 0) return items
-  let touched = false
-  const out = items.map((it) => {
-    if (it.kind !== 'assistant') return it
-    const blocks = it.blocks.map((b) => {
-      if (b.type !== 'tool_use' || b.id !== parentId) return b
-      touched = true
-      return { ...b, subLog: [...(b.subLog ?? []), ...lines].slice(-80) }
-    })
-    return touched ? { ...it, blocks } : it
-  })
-  return touched ? out : items
-}
-
-function reduce(items: ChatItem[], msg: SDKMessage): ChatItem[] {
-  const last = items[items.length - 1]
-  const lastAssistant = last && last.kind === 'assistant' && last.streaming ? last : null
-
-  switch (msg.type) {
-    case 'stream_event': {
-      if (msg.parent_tool_use_id) return items
-      const ev = msg.event as { type: string; index?: number; content_block?: unknown; delta?: unknown }
-      if (ev.type === 'message_start') {
-        return [...items, { kind: 'assistant', id: nid(), blocks: [], streaming: true }]
-      }
-      if (!lastAssistant) return items
-      const blocks = [...lastAssistant.blocks]
-      if (ev.type === 'content_block_start' && ev.content_block) {
-        const cb = ev.content_block as { type: string; id?: string; name?: string; text?: string; thinking?: string }
-        if (cb.type === 'text') blocks.push({ type: 'text', text: cb.text ?? '' })
-        else if (cb.type === 'thinking') blocks.push({ type: 'thinking', text: cb.thinking ?? '' })
-        else if (cb.type === 'tool_use') blocks.push({ type: 'tool_use', id: cb.id ?? nid(), name: cb.name ?? 'tool', input: {}, inputJson: '' })
-        else return items
-      } else if (ev.type === 'content_block_delta' && ev.delta && typeof ev.index === 'number') {
-        const d = ev.delta as { type: string; text?: string; thinking?: string; partial_json?: string }
-        const b = blocks[ev.index]
-        if (!b) return items
-        if (d.type === 'text_delta' && b.type === 'text') blocks[ev.index] = { ...b, text: b.text + (d.text ?? '') }
-        else if (d.type === 'thinking_delta' && b.type === 'thinking') blocks[ev.index] = { ...b, text: b.text + (d.thinking ?? '') }
-        else if (d.type === 'input_json_delta' && b.type === 'tool_use') blocks[ev.index] = { ...b, inputJson: b.inputJson + (d.partial_json ?? '') }
-        else return items
-      } else if (ev.type === 'content_block_stop' && typeof ev.index === 'number') {
-        const b = blocks[ev.index]
-        if (b?.type === 'tool_use') {
-          let input: unknown = {}
-          try { input = b.inputJson ? JSON.parse(b.inputJson) : {} } catch { input = { _raw: b.inputJson } }
-          blocks[ev.index] = { ...b, input }
-        }
-      } else if (ev.type === 'message_stop') {
-        return [...items.slice(0, -1), { ...lastAssistant, blocks, streaming: false }]
-      } else {
-        return items
-      }
-      return [...items.slice(0, -1), { ...lastAssistant, blocks }]
-    }
-
-    case 'assistant': {
-      const content = (msg.message as { content: unknown[] }).content ?? []
-      if (msg.parent_tool_use_id) {
-        const lines: string[] = []
-        for (const raw of content) {
-          const b = raw as { type: string; text?: string; name?: string; input?: unknown }
-          if (b.type === 'text' && b.text?.trim()) lines.push(b.text.trim().replace(/\s+/g, ' ').slice(0, 200))
-          else if (b.type === 'tool_use') lines.push('→ ' + shortToolSummary(b.name ?? 'tool', b.input))
-        }
-        return appendSubLog(items, msg.parent_tool_use_id, lines)
-      }
-      if (lastAssistant) {
-        // While streaming, the SDK emits one `assistant` message per finished block.
-        // Stream events already built the blocks; only take authoritative tool inputs from here.
-        const incoming = apiBlocksToBlocks(content, [])
-        let touched = false
-        const blocks = lastAssistant.blocks.map((b) => {
-          if (b.type !== 'tool_use') return b
-          const m = incoming.find((x) => x.type === 'tool_use' && x.id === b.id)
-          if (!m || m.type !== 'tool_use') return b
-          touched = true
-          return { ...b, input: m.input, inputJson: m.inputJson }
-        })
-        return touched ? [...items.slice(0, -1), { ...lastAssistant, blocks }] : items
-      }
-      // No streaming item (history replay): append as a complete message.
-      return [...items, { kind: 'assistant', id: nid(), blocks: apiBlocksToBlocks(content, []), streaming: false }]
-    }
-
-    case 'user': {
-      if (msg.parent_tool_use_id) return items
-      const content = (msg.message as { content: unknown }).content
-      if (typeof content === 'string') {
-        return content.trim() ? [...items, { kind: 'user', id: nid(), text: content }] : items
-      }
-      if (!Array.isArray(content)) return items
-      const results = content.filter((c) => c && typeof c === 'object' && (c as { type: string }).type === 'tool_result') as Array<{
-        tool_use_id: string; content: unknown; is_error?: boolean
-      }>
-      if (results.length === 0) {
-        const blocks = content as Array<{ type: string; text?: string; source?: { type?: string; media_type?: string; data?: string } }>
-        const text = blocks.filter((b) => b.type === 'text').map((b) => b.text ?? '').join('\n')
-        const images = blocks
-          .filter((b) => b.type === 'image' && b.source?.type === 'base64' && b.source.data)
-          .map((b) => `data:${b.source!.media_type};base64,${b.source!.data}`)
-        if (!text.trim() && images.length === 0) return items
-        return [...items, { kind: 'user', id: nid(), text, images: images.length ? images : undefined }]
-      }
-      return items.map((it) => {
-        if (it.kind !== 'assistant') return it
-        let touched = false
-        const blocks = it.blocks.map((b) => {
-          if (b.type !== 'tool_use') return b
-          const r = results.find((x) => x.tool_use_id === b.id)
-          if (!r) return b
-          touched = true
-          return { ...b, result: { text: contentToText(r.content), isError: !!r.is_error } }
-        })
-        return touched ? { ...it, blocks } : it
-      })
-    }
-
-    case 'result': {
-      const item: ChatItem = {
-        kind: 'result', id: nid(), costUsd: msg.total_cost_usd, durationMs: msg.duration_ms,
-        turns: msg.num_turns, isError: msg.is_error,
-        text: msg.is_error ? ('result' in msg ? String(msg.result) : msg.subtype) : undefined,
-      }
-      const closed = lastAssistant ? [...items.slice(0, -1), { ...lastAssistant, streaming: false }] : items
-      return [...closed, item]
-    }
-
-    default:
-      return items
-  }
+export function forgetRecent(sdkSessionId: string) {
+  try { localStorage.setItem('aimux.recent', JSON.stringify(readRecent().filter((r) => r.sdkSessionId !== sdkSessionId))) } catch { /* ignore */ }
 }
 
 // ---------------------------------------------------------------------------
@@ -312,6 +123,10 @@ function updateSession(s: Store, id: string, fn: (cur: SessionState) => Partial<
   return { sessions: { ...s.sessions, [id]: { ...cur, ...fn(cur) } } }
 }
 
+const freshSession = (meta: SessionMeta, browserOpen = false): SessionState => ({
+  meta, items: [], pending: [], elicitations: [], browser: null, browserOpen, downloads: [], findOpen: false, browserFindOpen: false,
+})
+
 export const useStore = create<Store>((set, get) => ({
   sessions: {},
   order: [],
@@ -325,12 +140,15 @@ export const useStore = create<Store>((set, get) => ({
     return { sidebarCollapsed: next }
   }),
 
-  soundOn: (() => { try { return localStorage.getItem('aimux.sound') !== '0' } catch { return true } })(),
-  toggleSound: () => set((s) => {
-    const next = !s.soundOn
-    try { localStorage.setItem('aimux.sound', next ? '1' : '0') } catch { /* ignore */ }
-    return { soundOn: next }
-  }),
+  overlays: 0,
+  pushOverlay: () => set((s) => ({ overlays: s.overlays + 1 })),
+  popOverlay: () => set((s) => ({ overlays: Math.max(0, s.overlays - 1) })),
+  settingsOpen: false,
+  setSettingsOpen: (open) => set({ settingsOpen: open }),
+  overviewOpen: false,
+  setOverviewOpen: (open) => set({ overviewOpen: open }),
+  models: [],
+  setModels: (models) => set({ models }),
 
   addGroup: () => set((s) => {
     const pane = nid()
@@ -354,16 +172,26 @@ export const useStore = create<Store>((set, get) => ({
 
   renameGroup: (id, name) => set((s) => updateGroup(s, () => ({ name: name.trim() || 'Grupa' }), id)),
 
-  addSession: (meta, paneId) => set((s) => {
-    const g = selectActiveGroup(s)
-    const target = paneId ?? g.focusedPane
-    return {
-      sessions: { ...s.sessions, [meta.id]: { meta, items: [], pending: [], browser: null, browserOpen: false } },
+  hydrate: (groups, activeGroup, order) => set((s) => ({
+    groups, activeGroup, order: [...order, ...s.order.filter((id) => !order.includes(id))],
+  })),
+
+  addSession: (meta, paneId, browserOpen) => set((s) => {
+    const base = {
+      sessions: { ...s.sessions, [meta.id]: freshSession(meta, browserOpen) },
       order: [meta.id, ...s.order.filter((x) => x !== meta.id)],
+    }
+    // null: the session is only listed in the sidebar, not shown in a pane.
+    if (paneId === null) return base
+    const target = paneId ?? selectActiveGroup(s).focusedPane
+    const owner = s.groups.find((g) => leaves(g.layout).some((l) => l.id === target))
+    if (!owner) return base
+    return {
+      ...base,
       ...updateGroup(s, (gr) => ({
         layout: mapLayout(gr.layout, (l) => (l.id === target ? { ...l, sessionId: meta.id } : l)),
         focusedPane: target,
-      })),
+      }), owner.id),
     }
   }),
 
@@ -385,7 +213,7 @@ export const useStore = create<Store>((set, get) => ({
       const focused = leaves(g.layout).find((l) => l.id === g.focusedPane)
       const place = focused && !focused.sessionId
       return {
-        sessions: { ...s.sessions, [meta.id]: { meta, items: [], pending: [], browser: null, browserOpen: false } },
+        sessions: { ...s.sessions, [meta.id]: freshSession(meta) },
         order: [meta.id, ...s.order],
         ...(place ? updateGroup(s, (gr) => ({ layout: mapLayout(gr.layout, (l) => (l.id === gr.focusedPane ? { ...l, sessionId: meta.id } : l)) })) : {}),
       }
@@ -402,7 +230,7 @@ export const useStore = create<Store>((set, get) => ({
     let items: ChatItem[] = []
     for (const m of msgs) {
       if (m.type === 'system') continue
-      items = reduce(items, { type: m.type, message: m.message, parent_tool_use_id: m.parent_tool_use_id } as unknown as SDKMessage)
+      items = reduce(items, { type: m.type, uuid: m.uuid, message: m.message, parent_tool_use_id: m.parent_tool_use_id } as unknown as SDKMessage)
     }
     return { items: [...items, ...cur.items] }
   })),
@@ -417,19 +245,45 @@ export const useStore = create<Store>((set, get) => ({
     pending: cur.pending.filter((p) => p.requestId !== requestId),
   }))),
 
+  addElicitation: (req) => set((s) => updateSession(s, req.sessionId, (cur) => ({ elicitations: [...cur.elicitations, req] }))),
+
+  resolveElicitation: (sessionId, requestId) => set((s) => updateSession(s, sessionId, (cur) => ({
+    elicitations: cur.elicitations.filter((e) => e.requestId !== requestId),
+  }))),
+
+  loadSubagent: (sessionId, toolId, msgs) => set((s) => updateSession(s, sessionId, (cur) => {
+    const items = withSubagent(cur.items, toolId, msgs)
+    return items === cur.items ? {} : { items }
+  })),
+
   applyBrowserState: (state) => set((s) => updateSession(s, state.sessionId, () => ({ browser: state }))),
 
   setBrowserOpen: (sessionId, open) => set((s) => updateSession(s, sessionId, (cur) => (cur.browserOpen === open ? {} : { browserOpen: open }))),
 
+  applyDownload: (d) => set((s) => updateSession(s, d.sessionId, (cur) => ({
+    downloads: cur.downloads.some((x) => x.id === d.id) ? cur.downloads.map((x) => (x.id === d.id ? d : x)) : [...cur.downloads, d],
+  }))),
+
+  clearDownloads: (sessionId) => set((s) => updateSession(s, sessionId, (cur) => ({
+    downloads: cur.downloads.filter((d) => d.state === 'progressing'),
+  }))),
+
+  setDraft: (sessionId, text) => set((s) => updateSession(s, sessionId, () => ({ draft: { text, nonce: Date.now() } }))),
+
+  setFindOpen: (sessionId, open) => set((s) => updateSession(s, sessionId, () => ({ findOpen: open }))),
+
+  setBrowserFindOpen: (sessionId, open) => set((s) => updateSession(s, sessionId, () => ({ browserFindOpen: open }))),
+
   focusPane: (paneId) => set((s) => (selectFocusedPane(s) === paneId ? {} : updateGroup(s, () => ({ focusedPane: paneId })))),
 
-  splitPane: (paneId, dir) => set((s) => {
+  splitPane: (paneId, dir) => {
     const fresh = { kind: 'leaf' as const, id: nid(), sessionId: null }
-    return updateGroup(s, (g) => ({
+    set((s) => updateGroup(s, (g) => ({
       layout: mapLayout(g.layout, (l) => (l.id === paneId ? { kind: 'split', id: nid(), dir, a: l, b: fresh } : l)),
       focusedPane: fresh.id,
-    }))
-  }),
+    })))
+    return fresh.id
+  },
 
   closePane: (paneId) => set((s) => updateGroup(s, (g) => {
     const next = removeLeaf(g.layout, paneId)
@@ -454,6 +308,20 @@ export const useStore = create<Store>((set, get) => ({
     }))
   }),
 
+  moveSession: (sessionId, paneId) => set((s) => {
+    if (!s.sessions[sessionId]) return {}
+    const owner = s.groups.find((g) => leaves(g.layout).some((l) => l.id === paneId))
+    if (!owner) return {}
+    return {
+      activeGroup: owner.id,
+      groups: s.groups.map((g) => ({
+        ...g,
+        layout: mapLayout(g.layout, (l) => (l.id === paneId ? { ...l, sessionId } : l.sessionId === sessionId ? { ...l, sessionId: null } : l)),
+        focusedPane: g.id === owner.id ? paneId : g.focusedPane,
+      })),
+    }
+  }),
+
   showSession: (sessionId) => {
     const s = get()
     const other = groupOfSession(s.groups, sessionId)
@@ -466,6 +334,26 @@ export const useStore = create<Store>((set, get) => ({
   },
 }))
 
+// ---------------------------------------------------------------------------
+// Workspace persistence: groups, splits and open conversations survive a restart.
+
+export const WORKSPACE_KEY = 'aimux.workspace'
+
+/** Starts saving the workspace on every change. Called once the saved one has been restored. */
+export function startWorkspacePersistence() {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let last = ''
+  useStore.subscribe((s) => {
+    clearTimeout(timer)
+    timer = setTimeout(() => {
+      const json = JSON.stringify(serializeWorkspace(s))
+      if (json === last) return
+      last = json
+      try { localStorage.setItem(WORKSPACE_KEY, json) } catch { /* storage unavailable */ }
+    }, 300)
+  })
+}
+
 export const PERMISSION_MODES: { value: PermissionMode; label: string; hint: string }[] = [
   { value: 'default', label: 'Pitaj', hint: 'Traži odobrenje za alate koji mijenjaju stanje' },
   { value: 'acceptEdits', label: 'Prihvati izmjene', hint: 'Izmjene datoteka bez pitanja, ostalo pita' },
@@ -473,10 +361,14 @@ export const PERMISSION_MODES: { value: PermissionMode; label: string; hint: str
   { value: 'plan', label: 'Plan', hint: 'Samo čitanje i planiranje' },
 ]
 
-export const MODELS: { value: string; label: string }[] = [
-  { value: '', label: 'Zadani model' },
+/** Shown until a live session reports what the CLI really offers. */
+export const FALLBACK_MODELS: ModelOption[] = [
   { value: 'fable', label: 'Fable' },
   { value: 'opus', label: 'Opus' },
   { value: 'sonnet', label: 'Sonnet' },
   { value: 'haiku', label: 'Haiku' },
 ]
+
+export const EFFORT_LABELS: Record<EffortLevel, string> = {
+  low: 'nizak', medium: 'srednji', high: 'visok', xhigh: 'vrlo visok', max: 'maksimalan',
+}

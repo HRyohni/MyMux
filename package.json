@@ -4,13 +4,17 @@
   "description": "Chat UI for Claude Code with visible browser panel",
   "main": "out/main/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "dist": "electron-vite build && electron-builder --win",
-    "start": "electron-vite build && electron ."
+    "start": "electron-vite build && electron .",
+    "test:watch": "vitest",
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:linux": "electron-vite build && electron-builder --linux",
+    "release": "electron-vite build && electron-builder --win --publish always"
   },
   "keywords": [],
   "author": "Mateo",
@@ -19,6 +23,9 @@
   "private": "true",
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.296",
+    "electron-updater": "^6.8.9",
+    "highlight.js": "^11.12.0",
+    "jszip": "^3.10.2",
     "lucide-react": "^1.55.0",
     "mammoth": "^1.13.0",
     "marked": "^18.1.0",
@@ -43,7 +50,8 @@
     "electron-vite": "^5.0.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
-    "vite": "^7.3.7"
+    "vite": "^7.3.7",
+    "vitest": "^5.0.3"
   },
   "build": {
     "appId": "hr.kulen.aimux",
@@ -74,6 +82,38 @@
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
       "shortcutName": "aimux"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "HRyohni",
+        "repo": "MyMux"
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Development",
+      "icon": "build/icon.png"
     }
   }
 }

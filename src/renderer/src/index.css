@@ -4,6 +4,7 @@
   --color-bg: #0f1115;
   --color-bg-elev: #161920;
   --color-bg-elev2: #1d212b;
+  --color-bg-code: #0b0d11;
   --color-border: #262b36;
   --color-border-strong: #343a47;
   --color-fg: #e6e8ee;
@@ -15,8 +16,49 @@
   --color-warn: #fbbf24;
   --color-danger: #f87171;
   --color-user: #232a3a;
+  --color-link: #8ab4f8;
+  --color-scroll: #2c3240;
   --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: dark;
+  --hl-keyword: #c792ea;
+  --hl-string: #a5d6a7;
+  --hl-number: #f78c6c;
+  --hl-comment: #6b7483;
+  --hl-title: #82aaff;
+  --hl-type: #ffcb6b;
+  --hl-attr: #89ddff;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #ffffff;
+  --color-bg-elev: #f5f6f8;
+  --color-bg-elev2: #e9ebf0;
+  --color-bg-code: #f3f4f7;
+  --color-border: #dfe2e8;
+  --color-border-strong: #c3c8d2;
+  --color-fg: #1b1f27;
+  --color-fg-muted: #586174;
+  --color-fg-faint: #8a93a3;
+  --color-accent: #c2613f;
+  --color-accent-soft: #f7e3da;
+  --color-ok: #15803d;
+  --color-warn: #b45309;
+  --color-danger: #dc2626;
+  --color-user: #e7ecf7;
+  --color-link: #1d4ed8;
+  --color-scroll: #c9ced8;
+  --hl-keyword: #8839ef;
+  --hl-string: #2f7d32;
+  --hl-number: #c2410c;
+  --hl-comment: #8a93a3;
+  --hl-title: #1d4ed8;
+  --hl-type: #a16207;
+  --hl-attr: #0e7490;
 }
 
 html, body, #root { height: 100%; }
@@ -35,9 +77,9 @@ body {
 .no-drag { -webkit-app-region: no-drag; }
 
 /* scrollbars */
-* { scrollbar-width: thin; scrollbar-color: #2c3240 transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--color-scroll) transparent; }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-thumb { background: #2c3240; border-radius: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--color-scroll); border-radius: 8px; }
 *::-webkit-scrollbar-track { background: transparent; }
 
 /* markdown */
@@ -49,15 +91,26 @@ body {
 .md ul, .md ol { padding-left: 1.4em; }
 .md ul { list-style: disc; } .md ol { list-style: decimal; }
 .md li + li { margin-top: 0.25em; }
-.md a { color: #8ab4f8; text-decoration: underline; text-underline-offset: 2px; }
-.md code { font-family: var(--font-mono); font-size: 0.9em; background: #1d212b; padding: 0.12em 0.4em; border-radius: 5px; }
-.md pre { background: #0b0d11; border: 1px solid var(--color-border); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
+.md a { color: var(--color-link); text-decoration: underline; text-underline-offset: 2px; }
+.md code { font-family: var(--font-mono); font-size: 0.9em; background: var(--color-bg-elev2); padding: 0.12em 0.4em; border-radius: 5px; }
+.md pre { background: var(--color-bg-code); padding: 12px 14px; overflow-x: auto; margin: 0; }
 .md pre code { background: transparent; padding: 0; font-size: 12.5px; line-height: 1.55; }
 .md blockquote { border-left: 3px solid var(--color-border-strong); padding-left: 12px; color: var(--color-fg-muted); }
 .md table { border-collapse: collapse; width: 100%; font-size: 13px; }
 .md th, .md td { border: 1px solid var(--color-border); padding: 6px 10px; text-align: left; }
 .md th { background: var(--color-bg-elev); }
 .md hr { border: 0; border-top: 1px solid var(--color-border); }
+
+/* syntax highlighting (highlight.js class names) */
+.hljs-keyword, .hljs-literal, .hljs-built_in, .hljs-selector-tag, .hljs-meta .hljs-keyword { color: var(--hl-keyword); }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-meta .hljs-string { color: var(--hl-string); }
+.hljs-number, .hljs-symbol, .hljs-bullet, .hljs-variable, .hljs-template-variable { color: var(--hl-number); }
+.hljs-comment, .hljs-quote, .hljs-meta { color: var(--hl-comment); font-style: italic; }
+.hljs-title, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: var(--hl-title); }
+.hljs-type, .hljs-class .hljs-title, .hljs-title.class_ { color: var(--hl-type); }
+.hljs-attr, .hljs-attribute, .hljs-property, .hljs-params, .hljs-tag { color: var(--hl-attr); }
+.hljs-deletion { color: var(--color-danger); }
+.hljs-emphasis { font-style: italic; } .hljs-strong { font-weight: 600; }
 
 @keyframes pulse-dot { 0%, 100% { opacity: .35 } 50% { opacity: 1 } }
 .pulse { animation: pulse-dot 1.2s ease-in-out infinite; }

@@ -1,47 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useWindowControlsInset } from '../hooks'
-import { FolderOpen, History, ArrowRight, Search, RotateCcw, Star, X, Clock } from 'lucide-react'
+import { FolderOpen, History, ArrowRight, Search, RotateCcw, Star, X, Clock, Pencil, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
 import { useStore, PERMISSION_MODES, readRecent, leaves, selectLayout, type RecentEntry } from '../store'
-import type { SDKSessionInfo, PermissionMode } from '../../../shared/ipc'
+import { useSettings } from '../settings'
+import { openSession, archiveStoredSession, deleteStoredSession, errText } from '../actions'
+import type { SDKSessionInfo, PermissionMode, TranscriptHit } from '../../../shared/ipc'
 
 const readList = (key: string): string[] => { try { return JSON.parse(localStorage.getItem(key) ?? '[]') } catch { return [] } }
 const writeList = (key: string, v: string[]) => { try { localStorage.setItem(key, JSON.stringify(v)) } catch { /* ignore */ } }
 const FAV_KEY = 'aimux.favDirs'
 const RECENT_DIRS_KEY = 'aimux.recentDirs'
-const norm = (p: string) => p.trim().replace(/[\/]+$/, '')
-const shortName = (p: string) => { const parts = norm(p).split(/[\/]/); return parts[parts.length - 1] || p }
-
-/** Creates a session in the given pane, loading transcript history when resuming. */
-export async function openSession(paneId: string, opts: { cwd: string; resume?: string; permissionMode?: PermissionMode }) {
-  const st = useStore.getState()
-  const meta = await window.aimux.createSession(opts)
-  st.addSession(meta, paneId)
-  if (opts.resume) {
-    try {
-      const history = await window.aimux.getHistory(opts.resume, opts.cwd)
-      useStore.getState().loadHistory(meta.id, history)
-      // First real prompt: plain string, or the text block of a message that also carries images.
-      let text = ''
-      for (const m of history) {
-        if (m.type !== 'user') continue
-        const c = (m.message as { content?: unknown })?.content
-        if (typeof c === 'string') text = c
-        else if (Array.isArray(c) && !c.some((b) => (b as { type: string }).type === 'tool_result')) {
-          text = c.filter((b) => (b as { type: string }).type === 'text').map((b) => (b as { text?: string }).text ?? '').join(' ') || 'Slika'
-        }
-        if (text.trim()) break
-      }
-      if (text) useStore.getState().applyMeta({ ...meta, title: text.replace(/\s+/g, ' ').slice(0, 60) })
-    } catch (e) {
-      useStore.getState().addInfo(meta.id, `Povijest nije učitana: ${String(e)}`, 'error')
-    }
-  }
-  return meta
-}
+const norm = (p: string) => p.trim().replace(/[\\/]+$/, '')
+const shortName = (p: string) => { const parts = norm(p).split(/[\\/]/); return parts[parts.length - 1] || p }
 
 export default function Welcome({ paneId }: { paneId: string }) {
   const [cwd, setCwd] = useState('')
-  const [mode, setMode] = useState<PermissionMode>('default')
+  const [mode, setMode] = useState<PermissionMode>(() => useSettings.getState().defaultMode)
+  const [showArchived, setShowArchived] = useState(false)
+  const [reload, setReload] = useState(0)
+  const [renaming, setRenaming] = useState<{ id: string; text: string } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const [hits, setHits] = useState<TranscriptHit[] | null>(null)
+  const [searching, setSearching] = useState(false)
+  const searchContent = () => {
+    if (q.trim().length < 2 || searching) return
+    setSearching(true)
+    setError('')
+    window.aimux.searchTranscripts(q, allDirs ? undefined : cwd)
+      .then(setHits)
+      .catch((e) => setError(`Pretraga nije uspjela: ${errText(e)}`))
+      .finally(() => setSearching(false))
+  }
   const [recent, setRecent] = useState<SDKSessionInfo[]>([])
   const [allDirs, setAllDirs] = useState(false)
   const [q, setQ] = useState('')
@@ -79,15 +69,16 @@ export default function Welcome({ paneId }: { paneId: string }) {
       .then((r) => { if (!cancelled) setRecent(r) })
       .catch(() => setRecent([]))
     return () => { cancelled = true }
-  }, [cwd, allDirs])
+  }, [cwd, allDirs, reload])
 
   const openIds = useMemo(() => new Set(Object.values(openSessions).map((s) => s.meta.sdkSessionId)), [openSessions])
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return recent
       .filter((r) => !openIds.has(r.sessionId))
+      .filter((r) => (r.tag === 'archived') === showArchived)
       .filter((r) => !needle || [r.customTitle, r.summary, r.firstPrompt, r.cwd].some((x) => x?.toLowerCase().includes(needle)))
-  }, [recent, q, openIds])
+  }, [recent, q, openIds, showArchived])
 
   const pick = async () => {
     const dir = await window.aimux.pickFolder()
@@ -102,13 +93,29 @@ export default function Welcome({ paneId }: { paneId: string }) {
       localStorage.setItem('aimux.cwd', target)
       const nextRecent = [norm(target), ...recentDirs.filter((d) => d.toLowerCase() !== norm(target).toLowerCase())].slice(0, 8)
       setRecentDirs(nextRecent); writeList(RECENT_DIRS_KEY, nextRecent)
-      await openSession(paneId, { cwd: target, resume, permissionMode: mode })
+      const { defaultModel, defaultEffort } = useSettings.getState()
+      // A resumed session keeps the model it was using; the defaults apply to new conversations.
+      await openSession(paneId, { cwd: target, resume, permissionMode: mode, ...(resume ? {} : { model: defaultModel || undefined, effort: defaultEffort || undefined }) })
+    } catch (e) {
+      setError(`Razgovor nije otvoren: ${errText(e)}`)
     } finally {
       setBusy(false)
     }
   }
 
   const label = (r: SDKSessionInfo) => r.customTitle || r.summary || r.firstPrompt || r.sessionId
+
+  /** Runs a change to a stored session and refreshes the list. */
+  const mutate = (what: string, fn: () => Promise<void>) => {
+    setError('')
+    fn().then(() => setReload((n) => n + 1)).catch((e) => setError(`${what}: ${errText(e)}`))
+  }
+  const commitRename = (r: SDKSessionInfo) => {
+    const t = renaming?.text.trim()
+    setRenaming(null)
+    if (t && t !== label(r)) mutate('Preimenovanje nije uspjelo', () => window.aimux.renameStored(r.sessionId, t, r.cwd))
+  }
+  const rowBtn = 'w-6 h-6 rounded-md flex items-center justify-center text-fg-faint hover:text-fg hover:bg-bg-elev'
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -212,36 +219,76 @@ export default function Welcome({ paneId }: { paneId: string }) {
               <div className="flex items-center gap-2 text-xs font-medium text-fg-muted uppercase tracking-wider">
                 <History size={13} /> Prijašnje sesije
               </div>
-              <label className="flex items-center gap-1.5 text-[12px] text-fg-muted cursor-pointer select-none">
-                <input type="checkbox" checked={allDirs} onChange={(e) => setAllDirs(e.target.checked)} className="accent-accent" />
-                sve mape
-              </label>
+              <div className="flex items-center gap-3 text-[12px] text-fg-muted select-none">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="accent-accent" />
+                  arhivirane
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" checked={allDirs} onChange={(e) => setAllDirs(e.target.checked)} className="accent-accent" />
+                  sve mape
+                </label>
+              </div>
             </div>
             <div className="mt-2 flex items-center gap-2 bg-bg-elev border border-border rounded-lg px-3 h-9 focus-within:border-border-strong">
               <Search size={14} className="text-fg-faint" />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Pretraži po naslovu ili prvoj poruci…"
+              <input value={q} onChange={(e) => { setQ(e.target.value); setHits(null) }} placeholder="Pretraži po naslovu ili prvoj poruci…"
+                onKeyDown={(e) => { if (e.key === 'Enter') searchContent() }}
                 className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-fg-faint" />
+              <button onClick={searchContent} disabled={q.trim().length < 2 || searching} title="Pretraži i tekst poruka u transkriptima (Enter)"
+                className="shrink-0 text-[11.5px] text-fg-muted hover:text-fg disabled:opacity-40">{searching ? 'tražim…' : 'u sadržaju'}</button>
             </div>
+            {hits && (
+              <div className="mt-2 border border-accent/40 rounded-lg overflow-hidden divide-y divide-border">
+                <div className="px-3 py-1.5 text-[11px] uppercase tracking-wider text-fg-faint bg-bg-elev">Pronađeno u sadržaju ({hits.length})</div>
+                {hits.length === 0 && <div className="px-3 py-3 text-[12.5px] text-fg-faint text-center">Nijedna poruka ne sadrži taj tekst.</div>}
+                {hits.map((h) => (
+                  <button key={h.sessionId} onClick={() => start(h.sessionId, h.cwd ?? cwd)} disabled={busy || openIds.has(h.sessionId)}
+                    className="w-full text-left px-3 py-2 hover:bg-bg-elev2 disabled:opacity-50">
+                    <div className="truncate text-[13px]">{h.title}{openIds.has(h.sessionId) ? ' (već otvoren)' : ''}</div>
+                    <div className="text-[12px] text-fg-muted mt-0.5 line-clamp-2">{h.snippet}</div>
+                    <div className="truncate text-[11px] text-fg-faint mt-0.5">{new Date(h.lastModified).toLocaleString('hr-HR')}{h.cwd ? ` · ${h.cwd}` : ''}</div>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="mt-2 divide-y divide-border border border-border rounded-lg overflow-hidden">
-              {filtered.length === 0 && <div className="px-3 py-4 text-[12.5px] text-fg-faint text-center">Nema sesija</div>}
+              {filtered.length === 0 && <div className="px-3 py-4 text-[12.5px] text-fg-faint text-center">{showArchived ? 'Nema arhiviranih sesija' : 'Nema sesija'}</div>}
               {filtered.slice(0, 30).map((r) => (
-                <button
-                  key={r.sessionId}
-                  onClick={() => start(r.sessionId, r.cwd)}
-                  disabled={busy}
-                  className="w-full text-left px-3 py-2.5 hover:bg-bg-elev2 transition flex items-center gap-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px]">{label(r)}</div>
-                    <div className="truncate text-[11px] text-fg-faint mt-0.5">
-                      {new Date(r.lastModified).toLocaleString('hr-HR')}
-                      {allDirs && r.cwd ? ` · ${r.cwd}` : ''}{r.gitBranch ? ` · ${r.gitBranch}` : ''}
-                    </div>
+                <div key={r.sessionId} className="group/row px-3 py-2.5 hover:bg-bg-elev2 transition flex items-center gap-2">
+                  {renaming?.id === r.sessionId ? (
+                    <input autoFocus value={renaming.text} onChange={(e) => setRenaming({ id: r.sessionId, text: e.target.value })}
+                      onBlur={() => commitRename(r)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') commitRename(r); if (e.key === 'Escape') setRenaming(null) }}
+                      className="flex-1 min-w-0 h-8 px-2 rounded-md bg-bg border border-accent text-[13px] outline-none" />
+                  ) : (
+                    <button onClick={() => start(r.sessionId, r.cwd)} disabled={busy} className="min-w-0 flex-1 text-left">
+                      <div className="truncate text-[13px]">{label(r)}</div>
+                      <div className="truncate text-[11px] text-fg-faint mt-0.5">
+                        {new Date(r.lastModified).toLocaleString('hr-HR')}
+                        {allDirs && r.cwd ? ` · ${r.cwd}` : ''}{r.gitBranch ? ` · ${r.gitBranch}` : ''}
+                      </div>
+                    </button>
+                  )}
+                  <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
+                    <button className={rowBtn} title="Preimenuj" onClick={() => setRenaming({ id: r.sessionId, text: label(r) })}><Pencil size={13} /></button>
+                    <button className={rowBtn} title={showArchived ? 'Vrati iz arhive' : 'Arhiviraj (sakrij s popisa)'}
+                      onClick={() => mutate('Arhiviranje nije uspjelo', () => archiveStoredSession(r.sessionId, r.cwd, !showArchived))}>
+                      {showArchived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
+                    </button>
+                    {confirmDelete === r.sessionId ? (
+                      <button onBlur={() => setConfirmDelete(null)} autoFocus
+                        onClick={() => { setConfirmDelete(null); mutate('Brisanje nije uspjelo', () => deleteStoredSession(r.sessionId, r.cwd)) }}
+                        className="h-6 px-2 rounded-md bg-danger text-white text-[11px]">Obriši trajno?</button>
+                    ) : (
+                      <button className={`${rowBtn} hover:text-danger`} title="Obriši transkript" onClick={() => setConfirmDelete(r.sessionId)}><Trash2 size={13} /></button>
+                    )}
                   </div>
                   <ArrowRight size={14} className="text-fg-faint shrink-0" />
-                </button>
+                </div>
               ))}
             </div>
+            {error && <div className="mt-2 text-[12px] text-danger">{error}</div>}
           </div>
         </div>
       </div>

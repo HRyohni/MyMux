@@ -1,6 +1,8 @@
-import { useState } from 'react'
-import { Plus, MessageSquare, X, Folder, Columns2, Rows2, LayoutGrid, PanelLeftClose, PanelLeftOpen, Volume2, VolumeX } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Plus, MessageSquare, X, Folder, Columns2, Rows2, LayoutGrid, PanelLeftClose, PanelLeftOpen, Volume2, VolumeX, Settings, Archive, Trash2, LayoutDashboard } from 'lucide-react'
 import { useStore, leaves, selectActiveGroup, groupOfSession } from '../store'
+import { useSettings } from '../settings'
+import { closeSession, archiveStoredSession, deleteStoredSession, errText } from '../actions'
 
 function basename(p: string) {
   const parts = p.replace(/[\\/]+$/, '').split(/[\\/]/)
@@ -51,6 +53,42 @@ function GroupTab({ id, name, index, active, closable }: { id: string; name: str
   )
 }
 
+/** Asks for a second click within a few seconds before running a destructive action. */
+function ConfirmButton({ onConfirm, title, children }: { onConfirm(): void; title: string; children: React.ReactNode }) {
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    if (!armed) return
+    const t = setTimeout(() => setArmed(false), 3000)
+    return () => clearTimeout(t)
+  }, [armed])
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); if (armed) onConfirm(); else setArmed(true) }}
+      title={armed ? 'Klikni ponovno za potvrdu' : title}
+      className={`h-5 rounded flex items-center justify-center transition ${armed ? 'px-1.5 bg-danger text-white text-[10.5px]' : 'w-5 text-fg-faint hover:text-danger'}`}
+    >
+      {armed ? 'Obriši?' : children}
+    </button>
+  )
+}
+
+function SessionTitle({ id, title }: { id: string; title: string }) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const commit = () => {
+    const t = draft?.trim()
+    setDraft(null)
+    if (t && t !== title) window.aimux.renameSession(id, t).catch((e) => useStore.getState().addInfo(id, `Preimenovanje nije uspjelo: ${errText(e)}`, 'error'))
+  }
+  if (draft !== null) {
+    return (
+      <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setDraft(null) }}
+        className="w-full h-5 px-1 -mx-1 rounded bg-bg border border-accent text-[13px] outline-none" />
+    )
+  }
+  return <div onDoubleClick={(e) => { e.stopPropagation(); setDraft(title) }} title={`${title} · dvoklik za preimenovanje`} className="truncate text-[13px] leading-tight pr-14">{title}</div>
+}
+
 export default function Sidebar() {
   const order = useStore((s) => s.order)
   const sessions = useStore((s) => s.sessions)
@@ -61,12 +99,13 @@ export default function Sidebar() {
   const showSession = useStore((s) => s.showSession)
   const setPaneSession = useStore((s) => s.setPaneSession)
   const splitPane = useStore((s) => s.splitPane)
-  const removeSession = useStore((s) => s.removeSession)
   const collapsed = useStore((s) => s.sidebarCollapsed)
   const toggleSidebar = useStore((s) => s.toggleSidebar)
   const switchGroup = useStore((s) => s.switchGroup)
-  const soundOn = useStore((s) => s.soundOn)
-  const toggleSound = useStore((s) => s.toggleSound)
+  const soundOn = useSettings((s) => s.sound)
+  const toggleSound = () => useSettings.getState().set({ sound: !soundOn })
+  const openSettings = () => useStore.getState().setSettingsOpen(true)
+  const openOverview = () => useStore.getState().setOverviewOpen(true)
   const soundTitle = soundOn ? 'Zvuk kad Claude završi: uključen' : 'Zvuk kad Claude završi: isključen'
 
   const focusedPane = group.focusedPane
@@ -74,10 +113,16 @@ export default function Sidebar() {
   const focusedLeaf = leaves(group.layout).find((l) => l.id === focusedPane)
   const welcomeActive = !!focusedLeaf && !focusedLeaf.sessionId
 
-  const close = async (e: React.MouseEvent, id: string) => {
+  const close = (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
-    await window.aimux.closeSession(id)
-    removeSession(id)
+    void closeSession(id)
+  }
+  const stored = (id: string, what: string, fn: (sdkId: string, cwd: string) => Promise<void>) => {
+    const s = sessions[id]
+    if (!s) return
+    // A conversation that never got a message has no transcript; closing it is all there is to do.
+    if (!s.meta.sdkSessionId) return void closeSession(id)
+    fn(s.meta.sdkSessionId, s.meta.cwd).catch((e) => useStore.getState().addInfo(id, `${what}: ${errText(e)}`, 'error'))
   }
 
   const iconBtn = 'w-7 h-7 rounded-md flex items-center justify-center text-fg-muted hover:text-fg hover:bg-bg-elev2'
@@ -103,6 +148,8 @@ export default function Sidebar() {
         <div className="drag flex-1 w-full" />
         <div className="pb-3 flex flex-col items-center gap-2">
           <button onClick={toggleSound} title={soundTitle} className={iconBtn}>{soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}</button>
+          <button onClick={openOverview} title="Pregled svih razgovora (Ctrl+Shift+O)" className={iconBtn}><LayoutDashboard size={15} /></button>
+          <button onClick={openSettings} title="Postavke (Ctrl+,)" className={iconBtn}><Settings size={15} /></button>
           {waiting && <span title="Razgovor čeka odobrenje" className="w-2 h-2 rounded-full bg-warn pulse" />}
           {running && <span title="Claude radi" className="w-3.5 h-3.5 rounded-full border-2 border-accent border-t-transparent animate-spin" />}
         </div>
@@ -115,6 +162,8 @@ export default function Sidebar() {
       <div className="drag h-10 flex items-center pl-4 pr-2 text-[13px] font-semibold tracking-wide text-fg-muted select-none">
         <span className="text-accent mr-1.5">●</span> aimux
         <button onClick={toggleSound} title={soundTitle} className={`no-drag ml-auto ${iconBtn}`}>{soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}</button>
+        <button onClick={openOverview} title="Pregled svih razgovora (Ctrl+Shift+O)" className={`no-drag ${iconBtn}`}><LayoutDashboard size={15} /></button>
+        <button onClick={openSettings} title="Postavke (Ctrl+,)" className={`no-drag ${iconBtn}`}><Settings size={15} /></button>
         <button onClick={toggleSidebar} title="Sakrij bočnu traku (Ctrl+Shift+B)" className={`no-drag ${iconBtn}`}><PanelLeftClose size={16} /></button>
       </div>
 
@@ -158,6 +207,8 @@ export default function Sidebar() {
           return (
             <div
               key={id}
+              draggable
+              onDragStart={(e) => { e.dataTransfer.setData('application/x-aimux-session', id); e.dataTransfer.effectAllowed = 'move' }}
               onClick={() => showSession(id)}
               className={`group relative flex items-start gap-2 px-3 py-2 rounded-lg cursor-pointer transition
                 ${active ? 'bg-bg-elev2 text-fg' : paneId ? 'bg-bg-elev2/50 text-fg' : 'text-fg-muted hover:bg-bg-elev2/60 hover:text-fg'}`}
@@ -168,7 +219,7 @@ export default function Sidebar() {
                   : <MessageSquare size={14} />}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] leading-tight">{s.meta.title}</div>
+                <SessionTitle id={id} title={s.meta.title} />
                 <div className="truncate text-[11px] text-fg-faint flex items-center gap-1 mt-0.5">
                   <Folder size={10} /> {basename(s.meta.cwd)}
                   {otherGroup && <span className="ml-1 text-fg-faint">· {otherGroup.name}</span>}
@@ -176,20 +227,26 @@ export default function Sidebar() {
                   {s.meta.ended && <span className="ml-1">· završeno</span>}
                 </div>
               </div>
-              <button
-                onClick={(e) => close(e, id)}
-                title="Zatvori razgovor"
-                className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 text-fg-faint hover:text-danger transition"
-              >
-                <X size={13} />
-              </button>
+              <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition">
+                <button onClick={(e) => { e.stopPropagation(); stored(id, 'Arhiviranje nije uspjelo', (sdk, cwd) => archiveStoredSession(sdk, cwd, true)) }}
+                  title="Arhiviraj: zatvori i sakrij s popisa prijašnjih sesija" className="w-5 h-5 rounded flex items-center justify-center text-fg-faint hover:text-fg">
+                  <Archive size={12} />
+                </button>
+                <ConfirmButton title="Obriši razgovor i njegov transkript" onConfirm={() => stored(id, 'Brisanje nije uspjelo', deleteStoredSession)}>
+                  <Trash2 size={12} />
+                </ConfirmButton>
+                <button onClick={(e) => close(e, id)} title="Zatvori razgovor (ostaje u prijašnjim sesijama)"
+                  className="w-5 h-5 rounded flex items-center justify-center text-fg-faint hover:text-fg">
+                  <X size={13} />
+                </button>
+              </div>
             </div>
           )
         })}
       </div>
 
       <div className="px-4 py-2 text-[10.5px] text-fg-faint border-t border-border leading-relaxed">
-        Ctrl+T nova grupa · Ctrl+1-9 grupa · Ctrl+Tab sljedeća · Ctrl+N novi · Ctrl+\ split · Ctrl+W zatvori panel · Ctrl+B browser · Ctrl+Shift+B sakrij traku
+        Ctrl+N novi · Ctrl+\ split · Ctrl+F pretraga · Ctrl+B browser · Ctrl+T grupa · Ctrl+, postavke i svi prečaci
       </div>
     </aside>
   )

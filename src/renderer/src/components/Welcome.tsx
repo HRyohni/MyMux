@@ -8,8 +8,8 @@ import type { SDKSessionInfo, PermissionMode, TranscriptHit } from '../../../sha
 
 const readList = (key: string): string[] => { try { return JSON.parse(localStorage.getItem(key) ?? '[]') } catch { return [] } }
 const writeList = (key: string, v: string[]) => { try { localStorage.setItem(key, JSON.stringify(v)) } catch { /* ignore */ } }
-const FAV_KEY = 'aimux.favDirs'
-const RECENT_DIRS_KEY = 'aimux.recentDirs'
+const FAV_KEY = 'mymux.favDirs'
+const RECENT_DIRS_KEY = 'mymux.recentDirs'
 const norm = (p: string) => p.trim().replace(/[\\/]+$/, '')
 const shortName = (p: string) => { const parts = norm(p).split(/[\\/]/); return parts[parts.length - 1] || p }
 
@@ -27,7 +27,7 @@ export default function Welcome({ paneId }: { paneId: string }) {
     if (q.trim().length < 2 || searching) return
     setSearching(true)
     setError('')
-    window.aimux.searchTranscripts(q, allDirs ? undefined : cwd)
+    window.mymux.searchTranscripts(q, allDirs ? undefined : cwd)
       .then(setHits)
       .catch((e) => setError(`Pretraga nije uspjela: ${errText(e)}`))
       .finally(() => setSearching(false))
@@ -55,9 +55,9 @@ export default function Welcome({ paneId }: { paneId: string }) {
   const quickDirs = [...favs, ...recentDirs.filter((d) => !favs.some((f) => f.toLowerCase() === d.toLowerCase()))]
 
   useEffect(() => {
-    const saved = localStorage.getItem('aimux.cwd')
+    const saved = localStorage.getItem('mymux.cwd')
     if (saved) setCwd(saved)
-    else window.aimux.homeDir().then(setCwd).catch(() => {})
+    else window.mymux.homeDir().then(setCwd).catch(() => {})
     const open = new Set(Object.values(useStore.getState().sessions).map((s) => s.meta.sdkSessionId))
     setLastOpen(readRecent().filter((r) => !open.has(r.sdkSessionId)).slice(0, 6))
   }, [])
@@ -65,7 +65,7 @@ export default function Welcome({ paneId }: { paneId: string }) {
   useEffect(() => {
     if (!cwd && !allDirs) return
     let cancelled = false
-    window.aimux.listSessions(allDirs ? undefined : cwd)
+    window.mymux.listSessions(allDirs ? undefined : cwd)
       .then((r) => { if (!cancelled) setRecent(r) })
       .catch(() => setRecent([]))
     return () => { cancelled = true }
@@ -81,7 +81,7 @@ export default function Welcome({ paneId }: { paneId: string }) {
   }, [recent, q, openIds, showArchived])
 
   const pick = async () => {
-    const dir = await window.aimux.pickFolder()
+    const dir = await window.mymux.pickFolder()
     if (dir) setCwd(dir)
   }
 
@@ -90,7 +90,7 @@ export default function Welcome({ paneId }: { paneId: string }) {
     if (!target || busy) return
     setBusy(true)
     try {
-      localStorage.setItem('aimux.cwd', target)
+      localStorage.setItem('mymux.cwd', target)
       const nextRecent = [norm(target), ...recentDirs.filter((d) => d.toLowerCase() !== norm(target).toLowerCase())].slice(0, 8)
       setRecentDirs(nextRecent); writeList(RECENT_DIRS_KEY, nextRecent)
       const { defaultModel, defaultEffort } = useSettings.getState()
@@ -113,7 +113,7 @@ export default function Welcome({ paneId }: { paneId: string }) {
   const commitRename = (r: SDKSessionInfo) => {
     const t = renaming?.text.trim()
     setRenaming(null)
-    if (t && t !== label(r)) mutate('Preimenovanje nije uspjelo', () => window.aimux.renameStored(r.sessionId, t, r.cwd))
+    if (t && t !== label(r)) mutate('Preimenovanje nije uspjelo', () => window.mymux.renameStored(r.sessionId, t, r.cwd))
   }
   const rowBtn = 'w-6 h-6 rounded-md flex items-center justify-center text-fg-faint hover:text-fg hover:bg-bg-elev'
 

@@ -37,14 +37,14 @@ export default function GitModal({ cwd, paneId, mode, onClose }: { cwd: string; 
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(() => {
-    window.aimux.gitStatus(cwd).then(setStatus).catch((e) => { setStatus(null); setNote({ text: errText(e), error: true }) })
+    window.mymux.gitStatus(cwd).then(setStatus).catch((e) => { setStatus(null); setNote({ text: errText(e), error: true }) })
   }, [cwd])
   useEffect(load, [load])
 
   useEffect(() => {
     if (!selected) { setDiff(''); return }
     let cancelled = false
-    window.aimux.gitDiff(cwd, selected).then((d) => { if (!cancelled) setDiff(d) }).catch((e) => { if (!cancelled) setDiff(errText(e)) })
+    window.mymux.gitDiff(cwd, selected).then((d) => { if (!cancelled) setDiff(d) }).catch((e) => { if (!cancelled) setDiff(errText(e)) })
     return () => { cancelled = true }
   }, [cwd, selected, status])
 
@@ -57,7 +57,7 @@ export default function GitModal({ cwd, paneId, mode, onClose }: { cwd: string; 
   }
 
   const worktree = () => run(async () => {
-    const path = await window.aimux.gitWorktree(cwd, branch)
+    const path = await window.mymux.gitWorktree(cwd, branch)
     const pane = useStore.getState().splitPane(paneId, 'horizontal')
     await openSession(pane, { cwd: path, permissionMode: mode })
     onClose()
@@ -109,11 +109,11 @@ export default function GitModal({ cwd, paneId, mode, onClose }: { cwd: string; 
 
         <div className="flex gap-2">
           <input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Poruka commita (uključuje sve izmjene)" className={input}
-            onKeyDown={(e) => { if (e.key === 'Enter' && message.trim() && !busy) run(() => window.aimux.gitCommit(cwd, message), () => { setMessage(''); setSelected(null) }) }} />
+            onKeyDown={(e) => { if (e.key === 'Enter' && message.trim() && !busy) run(() => window.mymux.gitCommit(cwd, message), () => { setMessage(''); setSelected(null) }) }} />
           <button disabled={busy || !message.trim() || status.files.length === 0} className={button}
-            onClick={() => run(() => window.aimux.gitCommit(cwd, message), () => { setMessage(''); setSelected(null) })}>Commit</button>
+            onClick={() => run(() => window.mymux.gitCommit(cwd, message), () => { setMessage(''); setSelected(null) })}>Commit</button>
           <button disabled={busy || status.files.length === 0} className={button} title="Spremi sve izmjene u stash (git stash --include-untracked)"
-            onClick={() => run(() => window.aimux.gitStash(cwd), () => setSelected(null))}>Stash</button>
+            onClick={() => run(() => window.mymux.gitStash(cwd), () => setSelected(null))}>Stash</button>
         </div>
         <div className="flex gap-2">
           <input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="Nova grana za worktree, npr. feature/api" className={input}

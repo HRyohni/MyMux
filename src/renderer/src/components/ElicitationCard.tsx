@@ -42,7 +42,7 @@ export default function ElicitationCard({ req }: { req: ElicitationRequest }) {
 
   const answer = (a: ElicitationAnswer) => {
     resolve(req.sessionId, req.requestId)
-    void window.aimux.answerElicitation(req.requestId, a)
+    void window.mymux.answerElicitation(req.requestId, a)
   }
   const missing = fields.some((f) => f.required && f.type !== 'boolean' && (values[f.key] === undefined || values[f.key] === ''))
   const submit = () => {

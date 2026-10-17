@@ -34,7 +34,7 @@ function TaskStrip({ sessionId, tasks }: { sessionId: string; tasks: BackgroundT
             <span className="shrink-0 text-[11px] text-fg-faint">{t.type}</span>
             <span className="flex-1 truncate" title={t.description}>{t.description}</span>
             <span className="text-[11px] text-fg-faint shrink-0">u pozadini</span>
-            <button onClick={() => void window.aimux.stopTask(sessionId, t.id).catch((e) => useStore.getState().addInfo(sessionId, `Zadatak nije zaustavljen: ${errText(e)}`, 'error'))}
+            <button onClick={() => void window.mymux.stopTask(sessionId, t.id).catch((e) => useStore.getState().addInfo(sessionId, `Zadatak nije zaustavljen: ${errText(e)}`, 'error'))}
               title="Zaustavi ovaj zadatak" className="w-6 h-6 rounded-md flex items-center justify-center hover:text-danger hover:bg-bg-elev2"><Square size={11} fill="currentColor" /></button>
           </div>
         ))}
@@ -91,7 +91,7 @@ function ChangesModal({ sessionId, items, cwd, onClose }: { sessionId: string; i
   }
   const open = (path: string) => {
     useStore.getState().setBrowserOpen(sessionId, true)
-    void window.aimux.browser.openFile(sessionId, path)
+    void window.mymux.browser.openFile(sessionId, path)
     onClose()
   }
   const total = files.reduce((a, f) => ({ added: a.added + f.added, removed: a.removed + f.removed }), { added: 0, removed: 0 })
@@ -165,7 +165,7 @@ export default function Chat({ sessionId, paneId }: { sessionId: string; paneId:
   const addInfo = useStore.getState().addInfo
   const toggleRemote = () => {
     const enable = !meta.remoteUrl
-    window.aimux.setRemoteControl(sessionId, enable)
+    window.mymux.setRemoteControl(sessionId, enable)
       .then((url) => {
         if (!url) return addInfo(sessionId, 'Remote Control isključen')
         void navigator.clipboard.writeText(url).catch(() => {})
@@ -176,14 +176,14 @@ export default function Chat({ sessionId, paneId }: { sessionId: string; paneId:
   const fork = () => { forkToSplit(sessionId, paneId).catch((e) => addInfo(sessionId, `Kopija razgovora nije napravljena: ${errText(e)}`, 'error')) }
   const exportChat = () => {
     const name = `${meta.title.replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'razgovor'}.md`
-    window.aimux.saveExport(name, toMarkdown(items, meta))
+    window.mymux.saveExport(name, toMarkdown(items, meta))
       .then((path) => { if (path) addInfo(sessionId, `Razgovor je spremljen u ${path}`) })
       .catch((e) => addInfo(sessionId, `Izvoz nije uspio: ${errText(e)}`, 'error'))
   }
   const commitRename = () => {
     const t = renaming?.trim()
     setRenaming(null)
-    if (t && t !== meta.title) window.aimux.renameSession(sessionId, t).catch((e) => addInfo(sessionId, `Preimenovanje nije uspjelo: ${errText(e)}`, 'error'))
+    if (t && t !== meta.title) window.mymux.renameSession(sessionId, t).catch((e) => addInfo(sessionId, `Preimenovanje nije uspjelo: ${errText(e)}`, 'error'))
   }
 
   const iconBtn = 'w-7 h-7 rounded-md flex items-center justify-center text-fg-muted hover:text-fg hover:bg-bg-elev2 disabled:opacity-40'

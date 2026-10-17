@@ -97,7 +97,7 @@ interface PendingElicitation { resolve: (r: ElicitationAnswer | null) => void; s
 
 function toMcpConfig(servers: Record<string, McpServerSpec> = {}) {
   return Object.fromEntries(Object.entries(servers)
-    .filter(([name]) => name !== 'aimux')
+    .filter(([name]) => name !== 'mymux')
     .map(([name, s]) => [name, s.type === 'stdio' ? { type: 'stdio' as const, command: s.command, args: s.args } : { type: s.type, url: s.url }]))
 }
 
@@ -152,7 +152,7 @@ export class AgentManager {
 
     const canUseTool: CanUseTool = (toolName, toolInput, options) => {
       // The app's own browser tools never need approval; sending work to another session does.
-      if (toolName.startsWith('mcp__aimux__') && toolName !== 'mcp__aimux__session_send') {
+      if (toolName.startsWith('mcp__mymux__') && toolName !== 'mcp__mymux__session_send') {
         return Promise.resolve({ behavior: 'allow', updatedInput: toolInput })
       }
       const requestId = randomUUID()
@@ -204,10 +204,10 @@ export class AgentManager {
         settingSources: ['user', 'project', 'local'],
         systemPrompt: {
           type: 'preset', preset: 'claude_code',
-          append: 'Imaš browser panel koji korisnik vidi uživo u aplikaciji (alati mcp__aimux__browser_*). Koristi ga za web, PDF-ove i lokalne dokumente umjesto WebFetch-a kad korisnik želi nešto vidjeti. '
-            + 'U aplikaciji mogu biti otvoreni i drugi razgovori s Claudeom: mcp__aimux__session_list ih nabraja, a mcp__aimux__session_send im šalje poruku (korisnik to odobrava). Koristi ih samo kad korisnik traži suradnju između razgovora.',
+          append: 'Imaš browser panel koji korisnik vidi uživo u aplikaciji (alati mcp__mymux__browser_*). Koristi ga za web, PDF-ove i lokalne dokumente umjesto WebFetch-a kad korisnik želi nešto vidjeti. '
+            + 'U aplikaciji mogu biti otvoreni i drugi razgovori s Claudeom: mcp__mymux__session_list ih nabraja, a mcp__mymux__session_send im šalje poruku (korisnik to odobrava). Koristi ih samo kad korisnik traži suradnju između razgovora.',
         },
-        mcpServers: { ...toMcpConfig(opts.mcpServers), aimux: browserTools },
+        mcpServers: { ...toMcpConfig(opts.mcpServers), mymux: browserTools },
         // Only unlocks the "Bez pitanja" mode so the user can switch to it; the mode itself stays the user's choice.
         allowDangerouslySkipPermissions: true,
         abortController: abort,
@@ -226,7 +226,7 @@ export class AgentManager {
   private async pump(s: Session) {
     try {
       for await (const msg of s.q) {
-        if (process.env.AIMUX_DEBUG) debugLog(msg)
+        if (process.env.MYMUX_DEBUG) debugLog(msg)
         this.handle(s, msg)
         this.events.onMessage(s.meta.id, msg)
       }
@@ -444,7 +444,7 @@ export class AgentManager {
 
   async setMcpServers(sessionId: string, servers: Record<string, McpServerSpec>) {
     const s = this.must(sessionId)
-    const r = await s.q.setMcpServers({ ...toMcpConfig(servers), aimux: s.ownTools })
+    const r = await s.q.setMcpServers({ ...toMcpConfig(servers), mymux: s.ownTools })
     const failed = Object.entries(r.errors ?? {})
     if (failed.length) throw new Error(failed.map(([name, e]) => `${name}: ${e}`).join('; '))
   }

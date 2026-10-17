@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, Notification, session, Tray, Menu, nativeImage } from 'electron'
 import { join, parse } from 'node:path'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { createServer } from 'node:net'
@@ -16,9 +16,14 @@ import type {
   ElicitationAnswer, McpServerSpec,
 } from '../shared/ipc'
 
-app.setName('aimux')
+app.setName('mymux')
+// The app used to be called aimux: carry its profile (settings, layouts, favourites) over once.
+const legacyProfile = join(app.getPath('appData'), 'aimux')
+if (!process.env.MYMUX_USER_DATA && !existsSync(app.getPath('userData')) && existsSync(legacyProfile)) {
+  try { cpSync(legacyProfile, app.getPath('userData'), { recursive: true }) } catch { /* start with a fresh profile */ }
+}
 // Dev/test runs can use their own profile so they never touch a running instance's data.
-if (process.env.AIMUX_USER_DATA) app.setPath('userData', process.env.AIMUX_USER_DATA)
+if (process.env.MYMUX_USER_DATA) app.setPath('userData', process.env.MYMUX_USER_DATA)
 
 // Two instances sharing one profile crash each other's renderer, so a second launch
 // just brings the running window to the front.
@@ -48,12 +53,12 @@ function reveal(sessionId?: string) {
 /** Tells the user something needs them while the window is not in front. */
 function notify(sessionId: string, body: string) {
   if (!win || win.isFocused() || !Notification.isSupported()) return
-  new Notification({ title: 'aimux', body }).on('click', () => reveal(sessionId)).show()
+  new Notification({ title: 'mymux', body }).on('click', () => reveal(sessionId)).show()
 }
 
 // Playwright drives the embedded browser views over CDP on a free localhost port.
-// AIMUX_CDP_PORT pins the port so a test script can attach to the UI.
-const cdpPort = Number(process.env.AIMUX_CDP_PORT) || await new Promise<number>((res, rej) => {
+// MYMUX_CDP_PORT pins the port so a test script can attach to the UI.
+const cdpPort = Number(process.env.MYMUX_CDP_PORT) || await new Promise<number>((res, rej) => {
   const srv = createServer()
   srv.listen(0, '127.0.0.1', () => {
     const addr = srv.address()
@@ -77,9 +82,9 @@ const agents = new AgentManager({
     win?.webContents.send('agent:permission', req)
     const what = req.toolName === 'AskUserQuestion' ? 'ima pitanje' : req.toolName === 'ExitPlanMode' ? 'plan čeka pregled' : `čeka odobrenje (${req.toolName})`
     notify(req.sessionId, `${agents.metaOf(req.sessionId)?.title ?? 'Claude'} · ${what}`)
-    if (process.env.AIMUX_AUTOANSWER) {
-      setTimeout(() => agents.answerPermission(req.requestId, { behavior: process.env.AIMUX_AUTOANSWER === 'deny' ? 'deny' : 'allow' }),
-        Number(process.env.AIMUX_AUTOANSWER_DELAY ?? 2500))
+    if (process.env.MYMUX_AUTOANSWER) {
+      setTimeout(() => agents.answerPermission(req.requestId, { behavior: process.env.MYMUX_AUTOANSWER === 'deny' ? 'deny' : 'allow' }),
+        Number(process.env.MYMUX_AUTOANSWER_DELAY ?? 2500))
     }
   },
   onPermissionResolved: (sessionId, requestId) => win?.webContents.send('agent:permissionResolved', sessionId, requestId),
@@ -98,7 +103,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#0f1115',
-    title: 'aimux',
+    title: 'mymux',
     icon: join(import.meta.dirname, '../../build/icon.png'),
     frame: false,
     webPreferences: {
@@ -134,9 +139,9 @@ function createWindow() {
 /** Tray icon: shows how many conversations wait or work, and brings the window back with a click. */
 function installTray() {
   tray = new Tray(nativeImage.createFromPath(join(import.meta.dirname, '../../build/icon.png')).resize({ width: 16, height: 16 }))
-  tray.setToolTip('aimux')
+  tray.setToolTip('mymux')
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Prikaži aimux', click: () => reveal() },
+    { label: 'Prikaži mymux', click: () => reveal() },
     { type: 'separator' },
     { label: 'Zatvori', click: () => app.quit() },
   ]))
@@ -162,17 +167,17 @@ function installDownloads() {
   })
 }
 
-/** Dev aids: AIMUX_AUTOPROMPT sends a prompt on startup, AIMUX_SCREENSHOT captures the window to a PNG. */
+/** Dev aids: MYMUX_AUTOPROMPT sends a prompt on startup, MYMUX_SCREENSHOT captures the window to a PNG. */
 function installDevHooks() {
-  const prompt = process.env.AIMUX_AUTOPROMPT
-  const autoOpen = process.env.AIMUX_AUTOOPEN
+  const prompt = process.env.MYMUX_AUTOPROMPT
+  const autoOpen = process.env.MYMUX_AUTOOPEN
   let devSession: string | null = null
   if (prompt || autoOpen) {
-    const meta = agents.createSession({ cwd: process.env.AIMUX_CWD ?? process.cwd(), permissionMode: (process.env.AIMUX_MODE as PermissionMode | undefined) ?? 'default' })
+    const meta = agents.createSession({ cwd: process.env.MYMUX_CWD ?? process.cwd(), permissionMode: (process.env.MYMUX_MODE as PermissionMode | undefined) ?? 'default' })
     devSession = meta.id
     win?.webContents.send('agent:meta', meta)
     if (prompt) setTimeout(() => {
-      const imgPath = process.env.AIMUX_AUTOIMAGE
+      const imgPath = process.env.MYMUX_AUTOIMAGE
       const images = imgPath ? [{ mediaType: 'image/png', data: readFileSync(imgPath).toString('base64') }] : []
       agents.send(meta.id, prompt, images)
     }, 300)
@@ -181,22 +186,22 @@ function installDevHooks() {
       void agents.browserOf(meta.id).openFile(autoOpen)
     }, 800)
   }
-  if (process.env.AIMUX_TOGGLE_SIDEBAR) {
-    setTimeout(() => win?.webContents.send('dev:command', { type: 'toggleSidebar' }), Number(process.env.AIMUX_TOGGLE_SIDEBAR))
+  if (process.env.MYMUX_TOGGLE_SIDEBAR) {
+    setTimeout(() => win?.webContents.send('dev:command', { type: 'toggleSidebar' }), Number(process.env.MYMUX_TOGGLE_SIDEBAR))
   }
-  if (process.env.AIMUX_AUTOSPLIT) {
-    win?.webContents.send('dev:command', { type: 'split', dir: process.env.AIMUX_AUTOSPLIT === 'vertical' ? 'vertical' : 'horizontal' })
+  if (process.env.MYMUX_AUTOSPLIT) {
+    win?.webContents.send('dev:command', { type: 'split', dir: process.env.MYMUX_AUTOSPLIT === 'vertical' ? 'vertical' : 'horizontal' })
   }
-  if (process.env.AIMUX_AUTORESUME) {
-    const cwd = process.env.AIMUX_CWD ?? process.cwd()
+  if (process.env.MYMUX_AUTORESUME) {
+    const cwd = process.env.MYMUX_CWD ?? process.cwd()
     setTimeout(() => void agents.listSessions(cwd).then((list) => {
-      const target = process.env.AIMUX_AUTORESUME === 'latest' ? list[0]?.sessionId : process.env.AIMUX_AUTORESUME
+      const target = process.env.MYMUX_AUTORESUME === 'latest' ? list[0]?.sessionId : process.env.MYMUX_AUTORESUME
       if (target) win?.webContents.send('dev:command', { type: 'resume', sdkSessionId: target, cwd })
     }), 800)
   }
-  const shot = process.env.AIMUX_SCREENSHOT
+  const shot = process.env.MYMUX_SCREENSHOT
   if (shot) {
-    const delays = (process.env.AIMUX_SCREENSHOT_DELAY ?? '8000').split(',').map(Number)
+    const delays = (process.env.MYMUX_SCREENSHOT_DELAY ?? '8000').split(',').map(Number)
     delays.forEach((delay, i) => setTimeout(async () => {
       const file = delays.length > 1 ? shot.replace(/\.png$/i, `-${i + 1}.png`) : shot
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -208,10 +213,10 @@ function installDevHooks() {
             const v = await agents.browserOf(devSession).view.webContents.capturePage()
             writeFileSync(file.replace(/\.png$/i, '-browser.png'), v.toPNG())
           }
-          console.log('[aimux] screenshot ->', file)
+          console.log('[mymux] screenshot ->', file)
           return
         } catch (err) {
-          console.warn('[aimux] screenshot retry', attempt, String(err))
+          console.warn('[mymux] screenshot retry', attempt, String(err))
           await new Promise((r) => setTimeout(r, 400))
         }
       }
@@ -288,7 +293,7 @@ ipcMain.handle('window:close', () => win?.close())
 ipcMain.handle('window:isMaximized', () => win?.isMaximized() ?? false)
 ipcMain.handle('window:setActivity', (_e, waiting: number, running: number) => {
   const parts = [waiting ? `${waiting} čeka tebe` : '', running ? `${running} radi` : ''].filter(Boolean)
-  tray?.setToolTip(parts.length ? `aimux · ${parts.join(' · ')}` : 'aimux')
+  tray?.setToolTip(parts.length ? `mymux · ${parts.join(' · ')}` : 'mymux')
   // The taskbar button flashes while something waits and the window is in the background.
   if (win && !win.isFocused()) win.flashFrame(waiting > 0)
 })

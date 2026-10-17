@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronUp, ChevronDown, X, Search } from 'lucide-react'
 
-const ALL = 'aimux-find'
-const CURRENT = 'aimux-find-current'
+const ALL = 'mymux-find'
+const CURRENT = 'mymux-find-current'
 
 /**
  * The ::highlight() rules are added at runtime: the CSS minifier of the build does not know the
  * pseudo-element yet and drops rules that use it.
  */
 function ensureStyle() {
-  if (document.getElementById('aimux-find-style')) return
+  if (document.getElementById('mymux-find-style')) return
   const el = document.createElement('style')
-  el.id = 'aimux-find-style'
+  el.id = 'mymux-find-style'
   el.textContent = `::highlight(${ALL}){background:color-mix(in srgb,var(--color-warn) 35%,transparent)}`
     + `::highlight(${CURRENT}){background:var(--color-accent);color:#000}`
   document.head.append(el)

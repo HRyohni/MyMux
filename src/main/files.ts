@@ -54,7 +54,7 @@ export async function searchFiles(cwd: string, query: string): Promise<string[]>
 
 /** Stores an attachment that has no path of its own (pasted or dragged out of another app). */
 export function saveTempFile(name: string, base64: string): string {
-  const dir = join(app.getPath('temp'), 'aimux-attachments', randomUUID().slice(0, 8))
+  const dir = join(app.getPath('temp'), 'mymux-attachments', randomUUID().slice(0, 8))
   mkdirSync(dir, { recursive: true })
   const file = join(dir, basename(name) || 'prilog')
   writeFileSync(file, Buffer.from(base64, 'base64'))

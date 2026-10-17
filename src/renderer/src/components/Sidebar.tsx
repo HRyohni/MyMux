@@ -77,7 +77,7 @@ function SessionTitle({ id, title }: { id: string; title: string }) {
   const commit = () => {
     const t = draft?.trim()
     setDraft(null)
-    if (t && t !== title) window.aimux.renameSession(id, t).catch((e) => useStore.getState().addInfo(id, `Preimenovanje nije uspjelo: ${errText(e)}`, 'error'))
+    if (t && t !== title) window.mymux.renameSession(id, t).catch((e) => useStore.getState().addInfo(id, `Preimenovanje nije uspjelo: ${errText(e)}`, 'error'))
   }
   if (draft !== null) {
     return (
@@ -160,7 +160,7 @@ export default function Sidebar() {
   return (
     <aside className="w-64 shrink-0 flex flex-col bg-bg-elev border-r border-border">
       <div className="drag h-10 flex items-center pl-4 pr-2 text-[13px] font-semibold tracking-wide text-fg-muted select-none">
-        <span className="text-accent mr-1.5">●</span> aimux
+        <span className="text-accent mr-1.5">●</span> mymux
         <button onClick={toggleSound} title={soundTitle} className={`no-drag ml-auto ${iconBtn}`}>{soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}</button>
         <button onClick={openOverview} title="Pregled svih razgovora (Ctrl+Shift+O)" className={`no-drag ${iconBtn}`}><LayoutDashboard size={15} /></button>
         <button onClick={openSettings} title="Postavke (Ctrl+,)" className={`no-drag ${iconBtn}`}><Settings size={15} /></button>
@@ -208,7 +208,7 @@ export default function Sidebar() {
             <div
               key={id}
               draggable
-              onDragStart={(e) => { e.dataTransfer.setData('application/x-aimux-session', id); e.dataTransfer.effectAllowed = 'move' }}
+              onDragStart={(e) => { e.dataTransfer.setData('application/x-mymux-session', id); e.dataTransfer.effectAllowed = 'move' }}
               onClick={() => showSession(id)}
               className={`group relative flex items-start gap-2 px-3 py-2 rounded-lg cursor-pointer transition
                 ${active ? 'bg-bg-elev2 text-fg' : paneId ? 'bg-bg-elev2/50 text-fg' : 'text-fg-muted hover:bg-bg-elev2/60 hover:text-fg'}`}

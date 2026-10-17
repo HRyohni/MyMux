@@ -1,5 +1,5 @@
 {
-  "name": "aimux",
+  "name": "mymux",
   "version": "0.1.0",
   "description": "Chat UI for Claude Code with visible browser panel",
   "main": "out/main/index.js",
@@ -54,8 +54,8 @@
     "vitest": "^5.0.3"
   },
   "build": {
-    "appId": "hr.kulen.aimux",
-    "productName": "aimux",
+    "appId": "hr.kulen.mymux",
+    "productName": "mymux",
     "asar": false,
     "directories": {
       "output": "dist",
@@ -81,7 +81,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "shortcutName": "aimux"
+      "shortcutName": "mymux"
     },
     "publish": [
       {

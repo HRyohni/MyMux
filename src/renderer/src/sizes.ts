@@ -2,7 +2,7 @@
 
 type Sizes = Record<string, number>
 
-const KEY = 'aimux.sizes'
+const KEY = 'mymux.sizes'
 /** Entries kept at most; ids of closed panes are never reused, so old ones are dropped by age. */
 const LIMIT = 200
 

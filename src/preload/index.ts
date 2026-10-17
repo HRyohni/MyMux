@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
-  AimuxApi, SDKMessage, SessionMeta, PermissionRequest, BrowserState, DevCommand, DownloadInfo, FindResult, BrowserShortcut,
+  MymuxApi, SDKMessage, SessionMeta, PermissionRequest, BrowserState, DevCommand, DownloadInfo, FindResult, BrowserShortcut,
   ElicitationRequest,
 } from '../shared/ipc'
 
@@ -10,7 +10,7 @@ function on<T extends unknown[]>(channel: string, cb: (...args: T) => void) {
   return () => ipcRenderer.removeListener(channel, handler)
 }
 
-const api: AimuxApi = {
+const api: MymuxApi = {
   window: {
     minimize: () => ipcRenderer.invoke('window:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('window:toggleMaximize'),
@@ -103,4 +103,4 @@ const api: AimuxApi = {
   onDevCommand: (cb) => on<[DevCommand]>('dev:command', cb),
 }
 
-contextBridge.exposeInMainWorld('aimux', api)
+contextBridge.exposeInMainWorld('mymux', api)

@@ -1,5 +1,5 @@
-import type { AimuxApi } from '../shared/ipc'
+import type { MymuxApi } from '../shared/ipc'
 declare global {
-  interface Window { aimux: AimuxApi }
+  interface Window { mymux: MymuxApi }
 }
 export {}

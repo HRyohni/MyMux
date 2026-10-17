@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="build/icon-256.png" width="96" alt="aimux">
+  <img src="build/icon-256.png" width="96" alt="mymux">
 </p>
 
-<h1 align="center">aimux</h1>
+<h1 align="center">mymux</h1>
 
 <p align="center">
   Desktop chat sučelje za <b>Claude Code</b>: više razgovora usporedno, svaki sa svojim vidljivim browserom.<br>
@@ -18,7 +18,7 @@
 
 ---
 
-aimux pokreće Claude Code preko [Claude Agent SDK-a](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) i prikazuje poruke,
+mymux pokreće Claude Code preko [Claude Agent SDK-a](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) i prikazuje poruke,
 pozive alata, diffove i odobrenja kao normalan chat. Pored razgovora je browser panel u kojem gledaš što Claude radi na webu
 (i možeš sam klikati), a otvara i PDF, Word, Excel, PowerPoint i Markdown datoteke.
 
@@ -27,9 +27,9 @@ Koristi istu prijavu, modele, postavke, `CLAUDE.md`, skillove i hookove kao tvoj
 
 ## Instalacija
 
-1. Preuzmi `aimux Setup x.y.z.exe` s [Releases](https://github.com/HRyohni/MyMux/releases/latest) i pokreni ga.
+1. Preuzmi `mymux Setup x.y.z.exe` s [Releases](https://github.com/HRyohni/MyMux/releases/latest) i pokreni ga.
 2. Budi prijavljen u Claude Code (`claude` → `/login`) ili postavi `ANTHROPIC_API_KEY`.
-3. Pokreni aimux, odaberi radnu mapu i piši.
+3. Pokreni mymux, odaberi radnu mapu i piši.
 
 Aplikacija se sama ažurira: nova verzija se preuzme u pozadini i instalira pri zatvaranju.
 
@@ -77,7 +77,7 @@ a koliko radi. Kraj odgovora prati kratak zvuk (dublji kod greške), koji se gas
 `Ctrl+,` otvara postavke: tema, veličina prikaza, zvuk, zadani model, effort i način odobravanja, prečaci, predlošci poruka i rasporedi.
 Kartice za razgovor u fokusiranom panelu:
 
-- **MCP serveri**: status, greške, ponovno spajanje i uključivanje. Serveri dodani u aplikaciji vrijede za svaki novi razgovor u aimuxu i ne diraju konfiguraciju Claude Codea.
+- **MCP serveri**: status, greške, ponovno spajanje i uključivanje. Serveri dodani u aplikaciji vrijede za svaki novi razgovor u mymuxu i ne diraju konfiguraciju Claude Codea.
 - **Dopuštenja i hookovi**: pravila se dodaju i uklanjaju (zadano u `.claude/settings.local.json` projekta); hookovi se samo pregledavaju.
 - **Račun i potrošnja**: pretplata i iskorištenost limita (5 sati, 7 dana).
 
@@ -125,14 +125,14 @@ Stack: Electron, electron-vite, React, Tailwind, zustand, Claude Agent SDK, Play
 |---|---|
 | `src/main/agent.ts` | sesije preko `query()` sa streaming ulazom, odobrenja (`canUseTool`) |
 | `src/main/browser.ts` | `WebContentsView` po tabu + Playwright preko CDP-a |
-| `src/main/browserTools.ts` | in-process MCP server `aimux` s `browser_*` alatima |
+| `src/main/browserTools.ts` | in-process MCP server `mymux` s `browser_*` alatima |
 | `src/main/documents.ts` | DOCX (mammoth), XLSX/CSV (SheetJS), PPTX (JSZip), Markdown → HTML za browser panel |
 | `src/main/files.ts` | pretraga za `@` spominjanja, privremeni prilozi |
 | `src/main/git.ts` | status, diff, commit, stash, worktree |
 | `src/main/extras.ts` | stablo datoteka, pretraga transkripata, podagenti, izvoz, pravila dopuštenja |
 | `src/main/updater.ts` | auto-update (electron-updater) |
 | `src/main/index.ts` | prozor, IPC, obavijesti, dev hookovi |
-| `src/preload/` | `window.aimux` API (contextBridge) |
+| `src/preload/` | `window.mymux` API (contextBridge) |
 | `src/renderer/` | React UI; čista logika s testovima: `reducer.ts`, `layout.ts`, `diff.ts`, `keys.ts` |
 | `src/shared/ipc.ts` | tipovi IPC ugovora |
 
@@ -141,20 +141,20 @@ Stack: Electron, electron-vite, React, Tailwind, zustand, Claude Agent SDK, Play
 
 | Varijabla | Što radi |
 |---|---|
-| `AIMUX_AUTOPROMPT` | pošalje prompt odmah nakon pokretanja |
-| `AIMUX_CWD` | radna mapa za autoprompt sesiju |
-| `AIMUX_AUTOOPEN=put.pdf` | otvori datoteku u browser panelu nakon pokretanja |
-| `AIMUX_AUTORESUME=latest\|<id>` | nastavi zadnju (ili zadanu) sesiju iz `AIMUX_CWD` |
-| `AIMUX_AUTOSPLIT=horizontal\|vertical` | podijeli panel nakon pokretanja |
-| `AIMUX_AUTOANSWER=allow\|deny` | automatski odgovara na odobrenja (`AIMUX_AUTOANSWER_DELAY` ms) |
-| `AIMUX_AUTOIMAGE=put.png` | priloži sliku uz `AIMUX_AUTOPROMPT` |
-| `AIMUX_MODE=plan` | način odobravanja za autoprompt sesiju (`plan`, `acceptEdits`, …) |
-| `AIMUX_SCREENSHOT=put.png` | snimi prozor nakon `AIMUX_SCREENSHOT_DELAY` ms (više vrijednosti odvojenih zarezom) |
-| `AIMUX_TOGGLE_SIDEBAR=ms` | sklopi/rasklopi bočnu traku nakon zadanog vremena |
-| `AIMUX_CDP_PORT=9333` | fiksni CDP port za testne skripte (Playwright `connectOverCDP`) |
-| `AIMUX_USER_DATA=mapa` | zaseban profil, da test ne dira pokrenutu aplikaciju |
-| `AIMUX_NO_UPDATE=1` | preskoči provjeru nove verzije |
-| `AIMUX_DEBUG=1` | ispisuje tipove SDK poruka u konzolu |
+| `MYMUX_AUTOPROMPT` | pošalje prompt odmah nakon pokretanja |
+| `MYMUX_CWD` | radna mapa za autoprompt sesiju |
+| `MYMUX_AUTOOPEN=put.pdf` | otvori datoteku u browser panelu nakon pokretanja |
+| `MYMUX_AUTORESUME=latest\|<id>` | nastavi zadnju (ili zadanu) sesiju iz `MYMUX_CWD` |
+| `MYMUX_AUTOSPLIT=horizontal\|vertical` | podijeli panel nakon pokretanja |
+| `MYMUX_AUTOANSWER=allow\|deny` | automatski odgovara na odobrenja (`MYMUX_AUTOANSWER_DELAY` ms) |
+| `MYMUX_AUTOIMAGE=put.png` | priloži sliku uz `MYMUX_AUTOPROMPT` |
+| `MYMUX_MODE=plan` | način odobravanja za autoprompt sesiju (`plan`, `acceptEdits`, …) |
+| `MYMUX_SCREENSHOT=put.png` | snimi prozor nakon `MYMUX_SCREENSHOT_DELAY` ms (više vrijednosti odvojenih zarezom) |
+| `MYMUX_TOGGLE_SIDEBAR=ms` | sklopi/rasklopi bočnu traku nakon zadanog vremena |
+| `MYMUX_CDP_PORT=9333` | fiksni CDP port za testne skripte (Playwright `connectOverCDP`) |
+| `MYMUX_USER_DATA=mapa` | zaseban profil, da test ne dira pokrenutu aplikaciju |
+| `MYMUX_NO_UPDATE=1` | preskoči provjeru nove verzije |
+| `MYMUX_DEBUG=1` | ispisuje tipove SDK poruka u konzolu |
 
 Aplikacija je single-instance: drugo pokretanje s istim profilom samo fokusira postojeći prozor.
 </details>
@@ -163,9 +163,9 @@ Aplikacija je single-instance: drugo pokretanje s istim profilom samo fokusira p
 <summary><b>Kako radi browser panel</b></summary>
 
 - Electron se pokreće s `--remote-debugging-port` na slobodnom localhost portu. Playwright se spaja preko `connectOverCDP`
-  i pronalazi stranicu po jedinstvenom početnom `data:` URL-u (naslov `aimux-<sessionId>`).
-- Alati `mcp__aimux__browser_*` (navigate, open_file, snapshot, get_text, click, type, select, press, scroll, screenshot, eval, back, tabs, wait)
-  su u `allowedTools`, pa ne traže odobrenje. Snapshot označava interaktivne elemente atributom `data-aimux-ref` (e1, e2…).
+  i pronalazi stranicu po jedinstvenom početnom `data:` URL-u (naslov `mymux-<sessionId>`).
+- Alati `mcp__mymux__browser_*` (navigate, open_file, snapshot, get_text, click, type, select, press, scroll, screenshot, eval, back, tabs, wait)
+  su u `allowedTools`, pa ne traže odobrenje. Snapshot označava interaktivne elemente atributom `data-mymux-ref` (e1, e2…).
 - Renderer samo mjeri placeholder `<div>` i šalje `setBounds`. Nativni view je uvijek iznad DOM-a, pa se browser sakrije dok je otvoren dijalog.
 - PDF radi preko Chromium PDF viewera (`webPreferences.plugins: true`). Poveznice koje otvaraju novi prozor otvaraju novi tab.
 </details>

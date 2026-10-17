@@ -166,7 +166,7 @@ async function render(abs: string): Promise<{ html: string; wide: boolean } | nu
 export async function toViewableUrl(abs: string): Promise<string> {
   const rendered = await render(abs)
   if (!rendered) return pathToFileURL(abs).href
-  const dir = join(app.getPath('temp'), 'aimux-docs')
+  const dir = join(app.getPath('temp'), 'mymux-docs')
   mkdirSync(dir, { recursive: true })
   const key = createHash('sha1').update(abs + statSync(abs).mtimeMs).digest('hex').slice(0, 16)
   const out = join(dir, `${key}.html`)

@@ -35,12 +35,12 @@ async function toAttachment(file: File): Promise<Attachment | null> {
     return url ? { kind: 'image', id: newId(), url, mediaType: file.type, data: url.slice(url.indexOf(',') + 1) } : null
   }
   // Anything else is handed to Claude by path, so it reads the file with its own tools.
-  let path = window.aimux.pathForFile(file)
+  let path = window.mymux.pathForFile(file)
   if (!path) {
     if (file.size > MAX_TEMP_BYTES) return null
     const url = await readDataUrl(file)
     if (!url) return null
-    path = await window.aimux.saveTempFile(file.name || 'prilog', url.slice(url.indexOf(',') + 1))
+    path = await window.mymux.saveTempFile(file.name || 'prilog', url.slice(url.indexOf(',') + 1))
   }
   return { kind: 'file', id: newId(), name: file.name || path.split(/[\\/]/).pop() || path, path }
 }
@@ -134,10 +134,10 @@ export default function Composer({ sessionId, paneId }: { sessionId: string; pan
   useEffect(() => {
     if (!live) return
     let cancelled = false
-    if (!commandCache.has(sessionId)) commandCache.set(sessionId, window.aimux.getCommands(sessionId))
+    if (!commandCache.has(sessionId)) commandCache.set(sessionId, window.mymux.getCommands(sessionId))
     commandCache.get(sessionId)!.then((c) => { if (!cancelled) setCommands(c) }).catch(() => commandCache.delete(sessionId))
     if (useStore.getState().models.length === 0) {
-      window.aimux.getModels(sessionId).then((m) => { if (m.length) useStore.getState().setModels(m) }).catch(() => {})
+      window.mymux.getModels(sessionId).then((m) => { if (m.length) useStore.getState().setModels(m) }).catch(() => {})
     }
     return () => { cancelled = true }
   }, [sessionId, live])
@@ -148,7 +148,7 @@ export default function Composer({ sessionId, paneId }: { sessionId: string; pan
     if (completion?.type !== 'file' || !cwd) { setFiles([]); return }
     let cancelled = false
     const timer = setTimeout(() => {
-      window.aimux.searchFiles(cwd, completion.query).then((r) => { if (!cancelled) setFiles(r) }).catch(() => {})
+      window.mymux.searchFiles(cwd, completion.query).then((r) => { if (!cancelled) setFiles(r) }).catch(() => {})
     }, 120)
     return () => { cancelled = true; clearTimeout(timer) }
   }, [completion?.type, completion?.query, cwd])
@@ -188,13 +188,13 @@ export default function Composer({ sessionId, paneId }: { sessionId: string; pan
     setText('')
     setAttachments([])
     try {
-      await window.aimux.send(sessionId, body, imgs)
+      await window.mymux.send(sessionId, body, imgs)
     } catch (e) {
       addInfo(sessionId, `Poruka nije poslana: ${errText(e)}`, 'error')
     }
   }
 
-  const stop = () => { void window.aimux.interrupt(sessionId) }
+  const stop = () => { void window.mymux.interrupt(sessionId) }
 
   const resume = async () => {
     if (!meta.sdkSessionId || busy) return
@@ -280,12 +280,12 @@ export default function Composer({ sessionId, paneId }: { sessionId: string; pan
     fn().catch((e) => addInfo(sessionId, `${what}: ${errText(e)}`, 'error'))
   }
   const screenshot = () => menuAction('Screenshot nije snimljen', async () => {
-    const data = await window.aimux.browser.capture(sessionId)
+    const data = await window.mymux.browser.capture(sessionId)
     setAttachments((cur) => [...cur, { kind: 'image' as const, id: newId(), url: `data:image/png;base64,${data}`, mediaType: 'image/png', data }].slice(0, 20))
   })
   const addDir = () => menuAction('Mapa nije dodana', async () => {
-    const dir = await window.aimux.pickFolder()
-    if (dir) await window.aimux.send(sessionId, `/add-dir ${dir}`)
+    const dir = await window.mymux.pickFolder()
+    if (dir) await window.mymux.send(sessionId, `/add-dir ${dir}`)
   })
   const menuItem = 'w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-fg-muted hover:text-fg hover:bg-bg-elev2 disabled:opacity-40 disabled:hover:bg-transparent'
 
@@ -307,10 +307,10 @@ export default function Composer({ sessionId, paneId }: { sessionId: string; pan
                 <Clock size={13} className="shrink-0 text-fg-faint" />
                 <span className="flex-1 truncate" title={m.text}>{m.text || 'Slika'}{m.images > 0 && m.text ? ` · ${m.images} sl.` : ''}</span>
                 <span className="text-[11px] text-fg-faint shrink-0">čeka kraj odgovora</span>
-                <button onClick={() => void window.aimux.sendQueuedNow(sessionId, m.id).catch(fail('Poruka nije poslana'))}
+                <button onClick={() => void window.mymux.sendQueuedNow(sessionId, m.id).catch(fail('Poruka nije poslana'))}
                   title="Pošalji odmah: Claude je vidi između dva koraka, bez čekanja kraja odgovora"
                   className="w-6 h-6 rounded-md flex items-center justify-center hover:text-accent hover:bg-bg-elev2"><Zap size={13} /></button>
-                <button onClick={() => void window.aimux.cancelQueued(sessionId, m.id).catch(fail('Poruka nije uklonjena'))}
+                <button onClick={() => void window.mymux.cancelQueued(sessionId, m.id).catch(fail('Poruka nije uklonjena'))}
                   title="Ukloni iz reda" className="w-6 h-6 rounded-md flex items-center justify-center hover:text-danger hover:bg-bg-elev2"><X size={13} /></button>
               </div>
             ))}
@@ -335,11 +335,11 @@ export default function Composer({ sessionId, paneId }: { sessionId: string; pan
               <button className={menuItem} onClick={addDir} title="Claude dobiva pristup još jednoj mapi (/add-dir)">
                 <FolderPlus size={14} className="shrink-0" /> Dodaj radnu mapu…
               </button>
-              <button className={menuItem} onClick={() => menuAction('Razmišljanje nije promijenjeno', () => window.aimux.setThinking(sessionId, !!meta.thinkingOff))}>
+              <button className={menuItem} onClick={() => menuAction('Razmišljanje nije promijenjeno', () => window.mymux.setThinking(sessionId, !!meta.thinkingOff))}>
                 <Brain size={14} className="shrink-0" /> <span className="flex-1">Prošireno razmišljanje</span>
                 {!meta.thinkingOff && <Check size={13} className="text-ok" />}
               </button>
-              <button className={menuItem} onClick={() => menuAction('Brzi način nije promijenjen', () => window.aimux.setFastMode(sessionId, !meta.fastMode))}
+              <button className={menuItem} onClick={() => menuAction('Brzi način nije promijenjen', () => window.mymux.setFastMode(sessionId, !meta.fastMode))}
                 title="Brži izlaz istog modela, uz veću cijenu; dostupno samo na nekim modelima i pretplatama">
                 <Gauge size={14} className="shrink-0" /> <span className="flex-1">Brzi način (fast mode)</span>
                 {meta.fastMode && <Check size={13} className="text-ok" />}
@@ -439,19 +439,19 @@ export default function Composer({ sessionId, paneId }: { sessionId: string; pan
           </div>
           <div className="flex items-center gap-1 pt-1.5 mt-1 border-t border-border/60 min-w-0 overflow-hidden">
             <select value={current?.value ?? meta.model ?? ''} title={`Model: ${meta.model ?? 'zadani'}`} className={select}
-              onChange={(e) => void window.aimux.setModel(sessionId, e.target.value || undefined).catch(fail('Model nije promijenjen'))}>
+              onChange={(e) => void window.mymux.setModel(sessionId, e.target.value || undefined).catch(fail('Model nije promijenjen'))}>
               {!modelOptions.some((m) => m.value === 'default') && <option className={option} value="">Zadani model</option>}
               {modelOptions.map((m) => <option className={option} key={m.value} value={m.value} title={m.description}>{m.label}</option>)}
               {meta.model && !current && <option className={option} value={meta.model}>{meta.model}</option>}
             </select>
             <select value={meta.effort ?? ''} title="Effort: koliko Claude razmišlja prije odgovora" className={select}
-              onChange={(e) => void window.aimux.setEffort(sessionId, (e.target.value || null) as EffortLevel | null).catch(fail('Effort nije promijenjen'))}>
+              onChange={(e) => void window.mymux.setEffort(sessionId, (e.target.value || null) as EffortLevel | null).catch(fail('Effort nije promijenjen'))}>
               <option className={option} value="">Effort: zadani</option>
               {efforts.map((ef) => <option className={option} key={ef} value={ef}>Effort: {EFFORT_LABELS[ef]}</option>)}
               {meta.effort && !efforts.includes(meta.effort) && <option className={option} value={meta.effort}>Effort: {EFFORT_LABELS[meta.effort]}</option>}
             </select>
             <select value={meta.permissionMode} title="Način odobravanja alata" className={select}
-              onChange={(e) => void window.aimux.setPermissionMode(sessionId, e.target.value as PermissionMode).catch(fail('Način odobravanja nije promijenjen'))}>
+              onChange={(e) => void window.mymux.setPermissionMode(sessionId, e.target.value as PermissionMode).catch(fail('Način odobravanja nije promijenjen'))}>
               {PERMISSION_MODES.map((m) => <option className={option} key={m.value} value={m.value} title={m.hint}>{m.label}</option>)}
               {!PERMISSION_MODES.some((m) => m.value === meta.permissionMode) && <option className={option} value={meta.permissionMode}>{meta.permissionMode}</option>}
             </select>

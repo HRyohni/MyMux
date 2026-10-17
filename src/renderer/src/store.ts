@@ -93,18 +93,18 @@ export const selectFocusedPane = (s: { groups: Group[]; activeGroup: string }) =
 // Recent sessions (persisted for "restore" on the welcome screen)
 
 export function readRecent(): RecentEntry[] {
-  try { return JSON.parse(localStorage.getItem('aimux.recent') ?? '[]') } catch { return [] }
+  try { return JSON.parse(localStorage.getItem('mymux.recent') ?? '[]') } catch { return [] }
 }
 function rememberRecent(meta: SessionMeta) {
   if (!meta.sdkSessionId || meta.title === 'Novi razgovor') return
   try {
     const list = readRecent().filter((r) => r.sdkSessionId !== meta.sdkSessionId)
     list.unshift({ sdkSessionId: meta.sdkSessionId, cwd: meta.cwd, title: meta.title, at: Date.now() })
-    localStorage.setItem('aimux.recent', JSON.stringify(list.slice(0, 20)))
+    localStorage.setItem('mymux.recent', JSON.stringify(list.slice(0, 20)))
   } catch { /* storage unavailable */ }
 }
 export function forgetRecent(sdkSessionId: string) {
-  try { localStorage.setItem('aimux.recent', JSON.stringify(readRecent().filter((r) => r.sdkSessionId !== sdkSessionId))) } catch { /* ignore */ }
+  try { localStorage.setItem('mymux.recent', JSON.stringify(readRecent().filter((r) => r.sdkSessionId !== sdkSessionId))) } catch { /* ignore */ }
 }
 
 // ---------------------------------------------------------------------------
@@ -132,11 +132,11 @@ export const useStore = create<Store>((set, get) => ({
   order: [],
   groups: [{ id: rootGroup, name: 'Grupa 1', layout: { kind: 'leaf', id: rootPane, sessionId: null }, focusedPane: rootPane }],
   activeGroup: rootGroup,
-  sidebarCollapsed: (() => { try { return localStorage.getItem('aimux.sidebarCollapsed') === '1' } catch { return false } })(),
+  sidebarCollapsed: (() => { try { return localStorage.getItem('mymux.sidebarCollapsed') === '1' } catch { return false } })(),
 
   toggleSidebar: () => set((s) => {
     const next = !s.sidebarCollapsed
-    try { localStorage.setItem('aimux.sidebarCollapsed', next ? '1' : '0') } catch { /* ignore */ }
+    try { localStorage.setItem('mymux.sidebarCollapsed', next ? '1' : '0') } catch { /* ignore */ }
     return { sidebarCollapsed: next }
   }),
 
@@ -337,7 +337,7 @@ export const useStore = create<Store>((set, get) => ({
 // ---------------------------------------------------------------------------
 // Workspace persistence: groups, splits and open conversations survive a restart.
 
-export const WORKSPACE_KEY = 'aimux.workspace'
+export const WORKSPACE_KEY = 'mymux.workspace'
 
 /** Starts saving the workspace on every change. Called once the saved one has been restored. */
 export function startWorkspacePersistence() {

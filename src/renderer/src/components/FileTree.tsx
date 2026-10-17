@@ -9,7 +9,7 @@ function Dir({ cwd, rel, depth, onOpen }: { cwd: string; rel: string; depth: num
 
   useEffect(() => {
     let cancelled = false
-    window.aimux.listDir(cwd, rel).then((e) => { if (!cancelled) setEntries(e) }).catch(() => { if (!cancelled) setError(true) })
+    window.mymux.listDir(cwd, rel).then((e) => { if (!cancelled) setEntries(e) }).catch(() => { if (!cancelled) setError(true) })
     return () => { cancelled = true }
   }, [cwd, rel])
 

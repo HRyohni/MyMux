@@ -16,8 +16,8 @@ export async function openSession(paneId: string | null, opts: CreateSessionOpti
   let title = opts.title
   let missing = false
   if (opts.resume) {
-    const info = await window.aimux.getSessionInfo(opts.resume, opts.cwd).catch(() => null)
-      ?? await window.aimux.getSessionInfo(opts.resume).catch(() => null)
+    const info = await window.mymux.getSessionInfo(opts.resume, opts.cwd).catch(() => null)
+      ?? await window.mymux.getSessionInfo(opts.resume).catch(() => null)
     // Resuming a transcript that is gone (deleted, or never written because nothing was sent) kills the CLI.
     if (!info) {
       missing = true
@@ -26,12 +26,12 @@ export async function openSession(paneId: string | null, opts: CreateSessionOpti
       title = (info.customTitle || info.summary || '').replace(/\s+/g, ' ').slice(0, 60) || undefined
     }
   }
-  const meta = await window.aimux.createSession({ mcpServers: useSettings.getState().mcpServers, ...opts, title })
+  const meta = await window.mymux.createSession({ mcpServers: useSettings.getState().mcpServers, ...opts, title })
   useStore.getState().addSession(meta, paneId, browserOpen)
   if (missing) useStore.getState().addInfo(meta.id, 'Prijašnji razgovor nije pronađen, pa je započet novi.', 'info')
   if (opts.resume) {
     try {
-      const history = await window.aimux.getHistory(opts.resume, opts.cwd)
+      const history = await window.mymux.getHistory(opts.resume, opts.cwd)
       useStore.getState().loadHistory(meta.id, history)
       void loadSubagents(meta.id, opts.resume, opts.cwd)
     } catch (e) {
@@ -45,7 +45,7 @@ export async function openSession(paneId: string | null, opts: CreateSessionOpti
 async function loadSubagents(sessionId: string, sdkSessionId: string, cwd: string) {
   const calls = unloadedAgents(useStore.getState().sessions[sessionId]?.items ?? [])
   if (calls.length === 0) return
-  const history = await window.aimux.getSubagentHistory(sdkSessionId, cwd, calls.map((c) => c.agentId)).catch(() => ({}))
+  const history = await window.mymux.getSubagentHistory(sdkSessionId, cwd, calls.map((c) => c.agentId)).catch(() => ({}))
   for (const c of calls) {
     const msgs = (history as Record<string, Parameters<ReturnType<typeof useStore.getState>['loadSubagent']>[2]>)[c.agentId]
     if (msgs?.length) useStore.getState().loadSubagent(sessionId, c.toolId, msgs)
@@ -63,14 +63,14 @@ async function applyWorkspace(saved: SavedWorkspace) {
       }, s.browserOpen)
       idOf.set(s.key, meta.id)
     } catch (e) {
-      console.warn('[aimux] sesija nije vraćena', s.title, e)
+      console.warn('[mymux] sesija nije vraćena', s.title, e)
     }
   }))
   const r = restoreGroups(saved, idOf)
   useStore.getState().hydrate(r.groups, r.activeGroup, r.order)
 }
 
-const LAYOUTS_KEY = 'aimux.layouts'
+const LAYOUTS_KEY = 'mymux.layouts'
 
 /** Named workspaces the user saved (groups, splits and their conversations). */
 export function readLayouts(): Record<string, SavedWorkspace> {
@@ -124,7 +124,7 @@ export function restoreWorkspace(): Promise<void> {
 
 /** Ends a session's process and removes it from the UI. The transcript stays on disk. */
 export async function closeSession(sessionId: string) {
-  await window.aimux.closeSession(sessionId).catch(() => {})
+  await window.mymux.closeSession(sessionId).catch(() => {})
   useStore.getState().removeSession(sessionId)
 }
 
@@ -139,7 +139,7 @@ export async function branchBefore(
   const st = useStore.getState()
   const meta = st.sessions[sessionId]?.meta
   if (!meta) throw new Error('Sesija više nije otvorena')
-  const { sdkSessionId } = await window.aimux.fork(sessionId, { beforeUuid: prompt.uuid, beforeText: prompt.text, title: meta.title })
+  const { sdkSessionId } = await window.mymux.fork(sessionId, { beforeUuid: prompt.uuid, beforeText: prompt.text, title: meta.title })
   const opts: CreateSessionOptions = {
     cwd: meta.cwd, resume: sdkSessionId ?? undefined, permissionMode: meta.permissionMode, model: meta.model, effort: meta.effort,
     title: sdkSessionId ? meta.title : undefined,
@@ -156,7 +156,7 @@ export async function forkToSplit(sessionId: string, paneId: string): Promise<vo
   const st = useStore.getState()
   const meta = st.sessions[sessionId]?.meta
   if (!meta) return
-  const { sdkSessionId } = await window.aimux.fork(sessionId, { title: `${meta.title} (kopija)` })
+  const { sdkSessionId } = await window.mymux.fork(sessionId, { title: `${meta.title} (kopija)` })
   if (!sdkSessionId) throw new Error('Razgovor još nema poruka koje bi se kopirale')
   await openSession(st.splitPane(paneId, 'horizontal'), {
     cwd: meta.cwd, resume: sdkSessionId, permissionMode: meta.permissionMode, model: meta.model, effort: meta.effort,
@@ -167,7 +167,7 @@ export async function forkToSplit(sessionId: string, paneId: string): Promise<vo
 export async function deleteStoredSession(sdkSessionId: string, cwd?: string) {
   const open = Object.values(useStore.getState().sessions).find((s) => s.meta.sdkSessionId === sdkSessionId)
   if (open) await closeSession(open.meta.id)
-  await window.aimux.deleteStored(sdkSessionId, cwd)
+  await window.mymux.deleteStored(sdkSessionId, cwd)
   forgetRecent(sdkSessionId)
 }
 
@@ -178,5 +178,5 @@ export async function archiveStoredSession(sdkSessionId: string, cwd: string | u
     if (open) await closeSession(open.meta.id)
     forgetRecent(sdkSessionId)
   }
-  await window.aimux.tagStored(sdkSessionId, archived ? 'archived' : null, cwd)
+  await window.mymux.tagStored(sdkSessionId, archived ? 'archived' : null, cwd)
 }

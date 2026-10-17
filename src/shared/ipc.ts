@@ -237,7 +237,7 @@ export interface ForkOptions {
   title?: string
 }
 
-export interface AimuxApi {
+export interface MymuxApi {
   browser: BrowserApi
   window: WindowApi
   createSession(opts: CreateSessionOptions): Promise<SessionMeta>

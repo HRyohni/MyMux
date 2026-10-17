@@ -12,11 +12,11 @@ const SNAPSHOT_SCRIPT = `(() => {
   const sel = 'a[href], button, input, select, textarea, summary, [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="checkbox"], [role="radio"], [role="textbox"], [role="combobox"], [contenteditable="true"], [onclick]';
   const visible = (el) => { const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2) return false; const s = getComputedStyle(el); return s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0'; };
   const label = (el) => (el.getAttribute('aria-label') || el.innerText || el.value || el.placeholder || el.alt || el.title || el.name || '').trim().replace(/\\s+/g, ' ').slice(0, 80);
-  document.querySelectorAll('[data-aimux-ref]').forEach((el) => el.removeAttribute('data-aimux-ref'));
+  document.querySelectorAll('[data-mymux-ref]').forEach((el) => el.removeAttribute('data-mymux-ref'));
   const out = []; let n = 0;
   for (const el of document.querySelectorAll(sel)) {
     if (!visible(el)) continue;
-    n++; const ref = 'e' + n; el.setAttribute('data-aimux-ref', ref);
+    n++; const ref = 'e' + n; el.setAttribute('data-mymux-ref', ref);
     const tag = el.tagName.toLowerCase();
     const role = el.getAttribute('role') || (tag === 'a' ? 'link' : tag === 'button' ? 'button' : tag === 'input' ? (el.type || 'text') : tag);
     let line = '[' + ref + '] ' + role + ' "' + label(el) + '"';
@@ -32,7 +32,7 @@ const SNAPSHOT_SCRIPT = `(() => {
 
 /** Builds the per-session MCP server that exposes the visible browser panel to Claude. */
 export function createBrowserTools(b: SessionBrowser, onActivity: () => void, extraTools: NonNullable<Parameters<typeof createSdkMcpServer>[0]['tools']> = []) {
-  const ref = (r: string) => `[data-aimux-ref="${r}"]`
+  const ref = (r: string) => `[data-mymux-ref="${r}"]`
   const act = <T,>(fn: () => Promise<T>) => { onActivity(); return fn() }
 
   const tools = [
@@ -177,5 +177,5 @@ export function createBrowserTools(b: SessionBrowser, onActivity: () => void, ex
     ].join('\n')
   }
 
-  return createSdkMcpServer({ name: 'aimux', version: '0.1.0', tools: [...tools, ...extraTools] })
+  return createSdkMcpServer({ name: 'mymux', version: '0.1.0', tools: [...tools, ...extraTools] })
 }

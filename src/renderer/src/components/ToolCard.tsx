@@ -24,7 +24,7 @@ function str(v: unknown): string | undefined {
 /** One-line human summary of a tool call. */
 function summarize(name: string, input: unknown): string {
   const i = (input ?? {}) as Record<string, unknown>
-  if (name.startsWith('mcp__aimux__browser_')) {
+  if (name.startsWith('mcp__mymux__browser_')) {
     if (i.ref) return `${i.ref}${i.text ? `  "${i.text}"` : ''}`
     return str(i.url) ?? str(i.path) ?? str(i.key) ?? str(i.script) ?? str(i.direction) ?? str(i.action) ?? ''
   }
@@ -83,9 +83,9 @@ const Label = ({ children }: { children: React.ReactNode }) => (
 export default function ToolCard({ block, streaming }: { block: ToolBlock; streaming: boolean }) {
   const isTodo = block.name === 'TodoWrite'
   const [open, setOpen] = useState(false)
-  const isBrowser = block.name.startsWith('mcp__aimux__browser_')
+  const isBrowser = block.name.startsWith('mcp__mymux__browser_')
   const Icon = isBrowser ? Globe : (ICONS[block.name] ?? Wrench)
-  const label = isBrowser ? `Browser · ${block.name.slice('mcp__aimux__browser_'.length).replace(/_/g, ' ')}` : block.name
+  const label = isBrowser ? `Browser · ${block.name.slice('mcp__mymux__browser_'.length).replace(/_/g, ' ')}` : block.name
   const summary = summarize(block.name, block.input)
   const done = !!block.result
   const failed = block.result?.isError

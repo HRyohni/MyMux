@@ -61,7 +61,7 @@ function UserActions({ item, ctx }: { item: UserItem; ctx: MessageContext }) {
   const retry = () => run(async () => {
     const meta = await branchBefore(sessionId, paneId, item, true)
     const images = (item.images ?? []).map(toAttachment).filter((x): x is ImageAttachment => !!x)
-    await window.aimux.send(meta.id, item.text, images)
+    await window.mymux.send(meta.id, item.text, images)
   }, 'Ponavljanje nije uspjelo')
 
   const branch = () => run(async () => {
@@ -70,14 +70,14 @@ function UserActions({ item, ctx }: { item: UserItem; ctx: MessageContext }) {
   }, 'Grananje nije uspjelo')
 
   const previewRewind = () => run(async () => {
-    const r = await window.aimux.rewindFiles(sessionId, item.uuid as string, true)
+    const r = await window.mymux.rewindFiles(sessionId, item.uuid as string, true)
     if (!r.canRewind) throw new Error(r.error ?? 'za ovu poruku nema spremljenog stanja datoteka')
     setRewind(r)
   }, 'Vraćanje datoteka nije moguće')
 
   const applyRewind = () => run(async () => {
     setRewind(null)
-    const r = await window.aimux.rewindFiles(sessionId, item.uuid as string, false)
+    const r = await window.mymux.rewindFiles(sessionId, item.uuid as string, false)
     if (!r.canRewind) throw new Error(r.error ?? 'nepoznata greška')
     store().addInfo(sessionId, `Datoteke su vraćene na stanje prije ove poruke (${r.filesChanged?.length ?? 0} datoteka). Razgovor nije promijenjen.`)
   }, 'Vraćanje datoteka nije uspjelo')

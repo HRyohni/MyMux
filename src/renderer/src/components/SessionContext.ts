@@ -10,6 +10,6 @@ export function useOpenFile(): ((path: string) => void) | null {
   if (!ctx) return null
   return (path) => {
     useStore.getState().setBrowserOpen(ctx.sessionId, true)
-    void window.aimux.browser.openFile(ctx.sessionId, path)
+    void window.mymux.browser.openFile(ctx.sessionId, path)
   }
 }

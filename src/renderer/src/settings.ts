@@ -19,7 +19,7 @@ export interface Settings {
   mcpServers: Record<string, McpServerSpec>
 }
 
-const KEY = 'aimux.settings'
+const KEY = 'mymux.settings'
 
 const DEFAULTS: Settings = {
   theme: 'dark', zoom: 1, sound: true, defaultModel: '', defaultMode: 'default', defaultEffort: '', keys: DEFAULT_KEYS,
@@ -30,7 +30,7 @@ function load(): Settings {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Settings> | null
     // The sound toggle used to be stored on its own.
-    const legacySound = localStorage.getItem('aimux.sound')
+    const legacySound = localStorage.getItem('mymux.sound')
     return {
       ...DEFAULTS,
       ...(legacySound !== null ? { sound: legacySound !== '0' } : {}),
@@ -61,7 +61,7 @@ export function initSettings() {
   initialized = true
   const apply = (s: Settings) => {
     document.documentElement.dataset.theme = s.theme
-    void window.aimux.window.setZoom(s.zoom)
+    void window.mymux.window.setZoom(s.zoom)
   }
   apply(useSettings.getState())
   useSettings.subscribe((s) => {

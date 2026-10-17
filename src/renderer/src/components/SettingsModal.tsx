@@ -139,7 +139,7 @@ function Mcp({ sessionId }: { sessionId: string | null }) {
   const load = () => {
     if (!sessionId) return
     setError('')
-    window.aimux.getMcpStatus(sessionId).then(setServers).catch((e) => setError(errText(e)))
+    window.mymux.getMcpStatus(sessionId).then(setServers).catch((e) => setError(errText(e)))
   }
   useEffect(load, [sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -177,10 +177,10 @@ function Mcp({ sessionId }: { sessionId: string | null }) {
                   {m.scope ? ` · ${m.scope}` : ''} · {m.tools.length} alata{m.url ? ` · ${m.url}` : ''}
                 </div>
               </button>
-              {m.name !== 'aimux' && (
+              {m.name !== 'mymux' && (
                 <>
-                  <button disabled={busy === m.name} onClick={() => act(m.name, () => window.aimux.reconnectMcp(sessionId, m.name))} className={button}>Spoji ponovno</button>
-                  <button disabled={busy === m.name} onClick={() => act(m.name, () => window.aimux.toggleMcp(sessionId, m.name, m.status === 'disabled'))} className={button}>
+                  <button disabled={busy === m.name} onClick={() => act(m.name, () => window.mymux.reconnectMcp(sessionId, m.name))} className={button}>Spoji ponovno</button>
+                  <button disabled={busy === m.name} onClick={() => act(m.name, () => window.mymux.toggleMcp(sessionId, m.name, m.status === 'disabled'))} className={button}>
                     {m.status === 'disabled' ? 'Uključi' : 'Isključi'}
                   </button>
                 </>
@@ -222,7 +222,7 @@ function Rules({ cwd }: { cwd: string | null }) {
 
   const load = () => {
     if (!cwd) return
-    window.aimux.getSettingsInfo(cwd).then((src) => {
+    window.mymux.getSettingsInfo(cwd).then((src) => {
       setSources(src)
       const editable = src.filter((x) => x.path && x.source !== 'managed' && x.source !== 'flag')
       setTarget((cur) => cur || editable.find((x) => x.source === 'local')?.path || editable[0]?.path || '')
@@ -236,7 +236,7 @@ function Rules({ cwd }: { cwd: string | null }) {
   const editable = sources.filter((x) => x.path && x.source !== 'managed' && x.source !== 'flag')
   const edit = (path: string, l: RuleList, r: string, add: boolean) => {
     setError('')
-    window.aimux.editPermissionRule(cwd, path, l, r, add).then(load).catch((e) => setError(errText(e)))
+    window.mymux.editPermissionRule(cwd, path, l, r, add).then(load).catch((e) => setError(errText(e)))
   }
   const addRule = () => {
     if (!rule.trim() || !target) return
@@ -321,12 +321,12 @@ function McpAdd({ sessionId, onChanged }: { sessionId: string | null; onChanged(
   const apply = (next: Record<string, McpServerSpec>) => {
     useSettings.getState().set({ mcpServers: next })
     setError('')
-    if (sessionId) window.aimux.setMcpServers(sessionId, next).then(onChanged).catch((e) => setError(errText(e)))
+    if (sessionId) window.mymux.setMcpServers(sessionId, next).then(onChanged).catch((e) => setError(errText(e)))
   }
   const add = () => {
     const n = name.trim()
     const t = target.trim()
-    if (!/^[\w-]+$/.test(n) || n === 'aimux') return setError('Ime smije imati slova, brojke, crticu i podvlaku.')
+    if (!/^[\w-]+$/.test(n) || n === 'mymux') return setError('Ime smije imati slova, brojke, crticu i podvlaku.')
     if (!t) return
     const [command, ...args] = t.split(/\s+/)
     apply({ ...servers, [n]: /^https?:\/\//.test(t) ? { type: 'http', url: t } : { type: 'stdio', command, args } })
@@ -337,7 +337,7 @@ function McpAdd({ sessionId, onChanged }: { sessionId: string | null; onChanged(
   return (
     <div className="mt-4 pt-3 border-t border-border">
       <div className="text-[13px] font-medium">Serveri dodani u aplikaciji</div>
-      <div className="text-[11.5px] text-fg-faint mt-0.5">Vrijede samo u aimuxu: dobiva ih svaki novi razgovor, a fokusirani odmah. URL daje HTTP server, sve ostalo je naredba koja se pokreće (stdio).</div>
+      <div className="text-[11.5px] text-fg-faint mt-0.5">Vrijede samo u mymuxu: dobiva ih svaki novi razgovor, a fokusirani odmah. URL daje HTTP server, sve ostalo je naredba koja se pokreće (stdio).</div>
       {Object.entries(servers).map(([n, spec]) => (
         <div key={n} className="flex items-center gap-2 mt-2 text-[12.5px]">
           <span className="font-mono shrink-0">{n}</span>
@@ -438,7 +438,7 @@ function Account({ sessionId }: { sessionId: string | null }) {
     if (!sessionId) return
     setInfo(null)
     setError('')
-    window.aimux.getUsage(sessionId).then(setInfo).catch((e) => setError(errText(e)))
+    window.mymux.getUsage(sessionId).then(setInfo).catch((e) => setError(errText(e)))
   }, [sessionId])
 
   if (!sessionId) return <Empty>Podaci o računu čitaju se iz žive sesije. Otvori razgovor i fokusiraj njegov panel.</Empty>

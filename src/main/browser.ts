@@ -43,7 +43,7 @@ export class SessionBrowser {
   get view(): WebContentsView { return this.active.view }
 
   private blankUrl(tabId: string) {
-    return `data:text/html,<title>aimux-${this.sessionId}-${tabId}</title><body style="background:%230f1115"></body>`
+    return `data:text/html,<title>mymux-${this.sessionId}-${tabId}</title><body style="background:%230f1115"></body>`
   }
 
   newTab(url?: string): string {

@@ -12,7 +12,7 @@ import type { DownloadInfo } from '../../../shared/ipc'
 const mb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} kB`)
 
 function DownloadRow({ d }: { d: DownloadInfo }) {
-  const api = window.aimux.browser
+  const api = window.mymux.browser
   const pct = d.total > 0 ? Math.round((d.received / d.total) * 100) : null
   const status = d.state === 'progressing' ? (pct !== null ? `${pct}% od ${mb(d.total)}` : mb(d.received))
     : d.state === 'completed' ? mb(d.received)
@@ -51,7 +51,7 @@ export default function BrowserPanel({ sessionId }: { sessionId: string }) {
   const [found, setFound] = useState<{ matches: number; active: number } | null>(null)
   const [treeOpen, setTreeOpen] = useState(false)
   const cwd = useStore((s) => s.sessions[sessionId]?.meta.cwd)
-  const api = window.aimux.browser
+  const api = window.mymux.browser
 
   useEffect(() => { if (!editing) setDraft(state?.url ?? '') }, [state?.url, editing])
 

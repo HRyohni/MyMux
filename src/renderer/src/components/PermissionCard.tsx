@@ -21,7 +21,7 @@ function useAnswer(req: PermissionRequest) {
   const resolve = useStore((s) => s.resolvePermission)
   return async (a: PermissionAnswer) => {
     resolve(req.sessionId, req.requestId)
-    await window.aimux.answerPermission(req.requestId, a)
+    await window.mymux.answerPermission(req.requestId, a)
   }
 }
 

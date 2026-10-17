@@ -12,7 +12,7 @@ import SettingsModal from './components/SettingsModal'
 import OverviewModal from './components/OverviewModal'
 import { savedSizes, saveSizes } from './sizes'
 
-const SESSION_DRAG = 'application/x-aimux-session'
+const SESSION_DRAG = 'application/x-mymux-session'
 import { playDone } from './sound'
 
 function PaneTree({ layout }: { layout: Layout }) {
@@ -86,35 +86,35 @@ export default function App() {
     initSettings()
     const st = useStore.getState()
     const offs = [
-      window.aimux.onMessage((sid, msg) => {
+      window.mymux.onMessage((sid, msg) => {
         st.applyMessage(sid, msg)
         if (msg.type === 'result' && useSettings.getState().sound) playDone(msg.is_error)
       }),
-      window.aimux.onMeta((meta) => st.applyMeta(meta)),
-      window.aimux.onPermission((req) => st.addPermission(req)),
-      window.aimux.onPermissionResolved((sid, requestId) => st.resolvePermission(sid, requestId)),
-      window.aimux.onElicitation((req) => st.addElicitation(req)),
-      window.aimux.onElicitationResolved((sid, requestId) => st.resolveElicitation(sid, requestId)),
-      window.aimux.onShowSession((sid) => { if (useStore.getState().sessions[sid]) st.showSession(sid) }),
-      window.aimux.onError((sid, err) => st.addInfo(sid, err, 'error')),
-      window.aimux.browser.onState((state) => st.applyBrowserState(state)),
-      window.aimux.browser.onActivity((sid) => st.setBrowserOpen(sid, true)),
-      window.aimux.browser.onDownload((d) => {
+      window.mymux.onMeta((meta) => st.applyMeta(meta)),
+      window.mymux.onPermission((req) => st.addPermission(req)),
+      window.mymux.onPermissionResolved((sid, requestId) => st.resolvePermission(sid, requestId)),
+      window.mymux.onElicitation((req) => st.addElicitation(req)),
+      window.mymux.onElicitationResolved((sid, requestId) => st.resolveElicitation(sid, requestId)),
+      window.mymux.onShowSession((sid) => { if (useStore.getState().sessions[sid]) st.showSession(sid) }),
+      window.mymux.onError((sid, err) => st.addInfo(sid, err, 'error')),
+      window.mymux.browser.onState((state) => st.applyBrowserState(state)),
+      window.mymux.browser.onActivity((sid) => st.setBrowserOpen(sid, true)),
+      window.mymux.browser.onDownload((d) => {
         // A download whose page is unknown is shown in the focused conversation.
         const s = useStore.getState()
         const fallback = leaves(selectLayout(s)).find((l) => l.id === selectFocusedPane(s))?.sessionId
         const sessionId = s.sessions[d.sessionId] ? d.sessionId : fallback
         if (sessionId) st.applyDownload({ ...d, sessionId })
       }),
-      window.aimux.browser.onShortcut((sid, shortcut) => {
+      window.mymux.browser.onShortcut((sid, shortcut) => {
         if (shortcut === 'find') st.setBrowserFindOpen(sid, true)
-        else if (shortcut === 'newTab') void window.aimux.browser.newTab(sid)
+        else if (shortcut === 'newTab') void window.mymux.browser.newTab(sid)
         else if (shortcut === 'closeTab') {
           const tab = useStore.getState().sessions[sid]?.browser?.activeTab
-          if (tab) void window.aimux.browser.closeTab(sid, tab)
+          if (tab) void window.mymux.browser.closeTab(sid, tab)
         }
       }),
-      window.aimux.onDevCommand((cmd) => {
+      window.mymux.onDevCommand((cmd) => {
         const s = useStore.getState()
         if (cmd.type === 'resume') void openSession(selectFocusedPane(s), { cwd: cmd.cwd, resume: cmd.sdkSessionId })
         else if (cmd.type === 'split') s.splitPane(selectFocusedPane(s), cmd.dir)
@@ -129,7 +129,7 @@ export default function App() {
       const running = all.filter((x) => x.meta.running).length
       if (`${waiting},${running}` === last) return
       last = `${waiting},${running}`
-      void window.aimux.window.setActivity(waiting, running)
+      void window.mymux.window.setActivity(waiting, running)
     }))
     void restoreWorkspace()
     return () => offs.forEach((off) => off())

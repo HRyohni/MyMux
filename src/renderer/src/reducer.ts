@@ -222,7 +222,8 @@ export function reduce(items: ChatItem[], msg: SDKMessage): ChatItem[] {
         turns: msg.num_turns, isError: msg.is_error,
         text: msg.is_error ? ('result' in msg ? String(msg.result) : msg.subtype) : undefined,
       }
-      const closed = lastAssistant ? [...items.slice(0, -1), { ...lastAssistant, streaming: false }] : items
+      // An interrupt can leave the streaming item behind other items (e.g. the "Prekinuto." note), so close them all.
+      const closed = items.map((it) => (it.kind === 'assistant' && it.streaming ? { ...it, streaming: false } : it))
       return [...closed, item]
     }
 

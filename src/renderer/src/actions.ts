@@ -3,6 +3,7 @@ import { useStore, forgetRecent, WORKSPACE_KEY, startWorkspacePersistence } from
 import { parseWorkspace, restoreGroups, serializeWorkspace, type SavedWorkspace } from './layout'
 import { unloadedAgents } from './reducer'
 import { useSettings } from './settings'
+import { googleUrl } from '../../shared/search'
 import type { CreateSessionOptions, SessionMeta } from '../../shared/ipc'
 
 export const errText = (e: unknown) =>
@@ -179,4 +180,23 @@ export async function archiveStoredSession(sdkSessionId: string, cwd: string | u
     forgetRecent(sdkSessionId)
   }
   await window.mymux.tagStored(sdkSessionId, archived ? 'archived' : null, cwd)
+}
+
+/** Markdown quote of selected text for the composer, naming the page it came from if any. */
+export function quoteSelection(text: string, source?: { title: string; url: string }): string {
+  const quoted = text.trim().split(/\r?\n/).map((l) => (l.trim() ? `> ${l}` : '>')).join('\n')
+  const url = source?.url && !source.url.startsWith('data:') ? source.url : ''
+  const from = url ? `\n>\n> — ${source?.title && !url.includes(source.title) ? `${source.title} (${url})` : url}` : ''
+  return `${quoted}${from}\n\n`
+}
+
+/** "Ask mymux": quote the selection into the conversation's composer. */
+export function askAbout(sessionId: string, text: string, source?: { title: string; url: string }) {
+  useStore.getState().appendDraft(sessionId, quoteSelection(text, source))
+}
+
+/** "Google it": search for the selection in a new tab of the conversation's browser panel. */
+export function googleIt(sessionId: string, text: string) {
+  useStore.getState().setBrowserOpen(sessionId, true)
+  void window.mymux.browser.newTab(sessionId, googleUrl(text))
 }

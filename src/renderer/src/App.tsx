@@ -3,7 +3,7 @@ import { Group, Panel, Separator } from 'react-resizable-panels'
 import { useStore, leaves, selectLayout, selectFocusedPane, selectActiveGroup, type Layout } from './store'
 import { useSettings, initSettings } from './settings'
 import { comboOf, actionFor, type ActionId } from './keys'
-import { openSession, restoreWorkspace } from './actions'
+import { openSession, restoreWorkspace, askAbout } from './actions'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
 import Welcome from './components/Welcome'
@@ -113,6 +113,9 @@ export default function App() {
           const tab = useStore.getState().sessions[sid]?.browser?.activeTab
           if (tab) void window.mymux.browser.closeTab(sid, tab)
         }
+      }),
+      window.mymux.browser.onAsk((sid, text, title, url) => {
+        if (useStore.getState().sessions[sid]) askAbout(sid, text, { title, url })
       }),
       window.mymux.onDevCommand((cmd) => {
         const s = useStore.getState()

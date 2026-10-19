@@ -163,6 +163,10 @@ async function render(abs: string): Promise<{ html: string; wide: boolean } | nu
  * Returns a URL the embedded browser can display for the given file.
  * PDFs, images and HTML load directly; Office and text formats are converted to a temp HTML page.
  */
+/** Converted temp page URL -> the file it shows, so a quote from it can name the real file. */
+const sourceOfUrl = new Map<string, string>()
+export const sourceOfViewableUrl = (url: string): string | undefined => sourceOfUrl.get(url)
+
 export async function toViewableUrl(abs: string): Promise<string> {
   const rendered = await render(abs)
   if (!rendered) return pathToFileURL(abs).href
@@ -171,7 +175,9 @@ export async function toViewableUrl(abs: string): Promise<string> {
   const key = createHash('sha1').update(abs + statSync(abs).mtimeMs).digest('hex').slice(0, 16)
   const out = join(dir, `${key}.html`)
   writeFileSync(out, rendered.html, 'utf-8')
-  return pathToFileURL(out).href
+  const url = pathToFileURL(out).href
+  sourceOfUrl.set(url, abs)
+  return url
 }
 
 export const VIEWABLE_EXTENSIONS = [

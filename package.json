@@ -1,6 +1,6 @@
 {
   "name": "mymux",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Chat UI for Claude Code with visible browser panel",
   "main": "out/main/index.js",
   "scripts": {

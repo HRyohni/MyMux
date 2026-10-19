@@ -13,6 +13,7 @@ import Message, { type MessageContext } from './Message'
 import PermissionCard from './PermissionCard'
 import Composer from './Composer'
 import FindBar from './FindBar'
+import SelectionBubble from './SelectionBubble'
 import Modal from './Modal'
 import { TodoList } from './ToolCard'
 import ElicitationCard from './ElicitationCard'
@@ -248,6 +249,7 @@ export default function Chat({ sessionId, paneId }: { sessionId: string; paneId:
               )}
             </div>
           </div>
+          <SelectionBubble sessionId={sessionId} container={scrollRef} />
           <TaskStrip sessionId={sessionId} tasks={meta.tasks ?? []} />
           <TodoStrip items={items} />
           <Composer sessionId={sessionId} paneId={paneId} />

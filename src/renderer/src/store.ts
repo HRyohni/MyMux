@@ -22,7 +22,7 @@ export interface SessionState {
   browserOpen: boolean
   downloads: DownloadInfo[]
   /** Text to put into the composer (edit of an earlier message); the nonce makes repeats distinct. */
-  draft?: { text: string; nonce: number }
+  draft?: { text: string; nonce: number; append?: boolean }
   findOpen: boolean
   browserFindOpen: boolean
 }
@@ -72,6 +72,8 @@ interface Store {
   applyDownload(d: DownloadInfo): void
   clearDownloads(sessionId: string): void
   setDraft(sessionId: string, text: string): void
+  /** Adds text to the end of whatever the composer already holds ("Ask mymux" on a selection). */
+  appendDraft(sessionId: string, text: string): void
   setFindOpen(sessionId: string, open: boolean): void
   setBrowserFindOpen(sessionId: string, open: boolean): void
   // panes
@@ -269,6 +271,7 @@ export const useStore = create<Store>((set, get) => ({
   }))),
 
   setDraft: (sessionId, text) => set((s) => updateSession(s, sessionId, () => ({ draft: { text, nonce: Date.now() } }))),
+  appendDraft: (sessionId, text) => set((s) => updateSession(s, sessionId, () => ({ draft: { text, nonce: Date.now(), append: true } }))),
 
   setFindOpen: (sessionId, open) => set((s) => updateSession(s, sessionId, () => ({ findOpen: open }))),
 

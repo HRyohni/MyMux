@@ -174,6 +174,8 @@ export interface BrowserApi {
   onFind(cb: (r: FindResult) => void): () => void
   /** Keyboard shortcuts pressed while the embedded page has focus. */
   onShortcut(cb: (sessionId: string, shortcut: BrowserShortcut) => void): () => void
+  /** "Ask mymux" from the selection bubble of a page: the selected text and where it came from. */
+  onAsk(cb: (sessionId: string, text: string, title: string, url: string) => void): () => void
 }
 
 export interface WindowApi {

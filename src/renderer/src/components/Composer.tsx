@@ -118,9 +118,16 @@ export default function Composer({ sessionId, paneId }: { sessionId: string; pan
 
   useEffect(() => {
     if (!draft) return
-    setText(draft.text)
-    setCaret(draft.text.length)
+    const next = draft.append && text.trim() ? `${text.trimEnd()}
+
+${draft.text}` : draft.text
+    setText(next)
+    setCaret(next.length)
     ref.current?.focus()
+    requestAnimationFrame(() => {
+      const el = ref.current
+      if (el) { el.setSelectionRange(next.length, next.length); el.scrollTop = el.scrollHeight }
+    })
   }, [draft?.nonce]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

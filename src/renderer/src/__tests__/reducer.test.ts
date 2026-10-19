@@ -149,6 +149,13 @@ describe('result', () => {
     expect(items[0]).toMatchObject({ kind: 'assistant', streaming: false })
     expect(items[1]).toMatchObject({ kind: 'result', isError: true, text: 'boom' })
   })
+
+  it('closes a streaming message left behind an interrupt note', () => {
+    const interrupt = msg({ type: 'user', message: { content: [{ type: 'text', text: '[Request interrupted by user]' }] }, parent_tool_use_id: null })
+    const items = run([stream({ type: 'message_start' }), interrupt, result(0, true)])
+    expect(items.map((i) => i.kind)).toEqual(['assistant', 'info', 'result'])
+    expect(items[0]).toMatchObject({ streaming: false })
+  })
 })
 
 describe('system messages', () => {

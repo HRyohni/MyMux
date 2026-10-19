@@ -1,6 +1,6 @@
 import { BrowserWindow, WebContentsView, app } from 'electron'
 import { chromium, type Browser, type Page } from 'playwright-core'
-import { isAbsolute, resolve } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import type { BrowserState, BrowserShortcut, FindResult, Rect } from '../shared/ipc'
 import { toViewableUrl } from './documents'
 
@@ -49,7 +49,10 @@ export class SessionBrowser {
   newTab(url?: string): string {
     const id = `t${++this.tabCounter}`
     const view = new WebContentsView({
-      webPreferences: { plugins: true, sandbox: true, contextIsolation: true, nodeIntegration: false },
+      webPreferences: {
+        plugins: true, sandbox: true, contextIsolation: true, nodeIntegration: false,
+        preload: join(import.meta.dirname, '../preload/page.cjs'),
+      },
     })
     view.setVisible(false)
     this.win.contentView.addChildView(view)

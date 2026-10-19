@@ -44,6 +44,7 @@ const api: MymuxApi = {
     onDownload: (cb) => on<[DownloadInfo]>('browser:download', cb),
     onFind: (cb) => on<[FindResult]>('browser:find', cb),
     onShortcut: (cb) => on<[string, BrowserShortcut]>('browser:shortcut', cb),
+    onAsk: (cb) => on<[string, string, string, string]>('browser:ask', cb),
   },
   createSession: (opts) => ipcRenderer.invoke('session:create', opts),
   send: (id, text, images, now) => ipcRenderer.invoke('session:send', id, text, images, now),

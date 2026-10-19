@@ -60,6 +60,7 @@ Aplikacija se sama ažurira: nova verzija se preuzme u pozadini i instalira pri 
 - Svaka sesija ima svoje tabove. Claude ih koristi preko ugrađenih `browser_*` alata (bez traženja odobrenja), a ti ih vidiš uživo i možeš sam klikati ili upisati URL.
 - Otvara **PDF, DOCX, XLSX/CSV, PPTX, Markdown** i tekst. Ikona uz putanju u Read/Edit/Write kartici otvara tu datoteku u panelu.
 - Stablo datoteka radne mape, zoom, pretraga na stranici, DevTools i popis preuzimanja.
+- **Označi tekst** (na stranici ili u razgovoru) i pojavi se oblačić: *Ask mymux* citira odabrano u polje za poruku (s izvorom), *Google it* otvara pretragu u novom tabu.
 
 ### Git, sesije i izvoz
 - **Git** (ikona grane): izmjene u radnom stablu s diffom prema HEAD-u, commit, stash i *Novi worktree + razgovor* da dva razgovora ne diraju iste datoteke.
@@ -132,7 +133,7 @@ Stack: Electron, electron-vite, React, Tailwind, zustand, Claude Agent SDK, Play
 | `src/main/extras.ts` | stablo datoteka, pretraga transkripata, podagenti, izvoz, pravila dopuštenja |
 | `src/main/updater.ts` | auto-update (electron-updater) |
 | `src/main/index.ts` | prozor, IPC, obavijesti, dev hookovi |
-| `src/preload/` | `window.mymux` API (contextBridge) |
+| `src/preload/` | `window.mymux` API (contextBridge); `page.ts` je preload stranica u browser panelu (oblačić za odabrani tekst) |
 | `src/renderer/` | React UI; čista logika s testovima: `reducer.ts`, `layout.ts`, `diff.ts`, `keys.ts` |
 | `src/shared/ipc.ts` | tipovi IPC ugovora |
 

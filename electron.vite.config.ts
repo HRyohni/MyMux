@@ -10,7 +10,13 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
-    build: { rollupOptions: { input: resolve(__dirname, 'src/preload/index.ts') } },
+    build: {
+      rollupOptions: {
+        // page.ts runs in sandboxed browser-panel pages, which only load CommonJS preloads.
+        input: { index: resolve(__dirname, 'src/preload/index.ts'), page: resolve(__dirname, 'src/preload/page.ts') },
+        output: { format: 'cjs', entryFileNames: '[name].cjs' },
+      },
+    },
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),

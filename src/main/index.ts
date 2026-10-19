@@ -10,7 +10,8 @@ import { searchFiles, saveTempFile } from './files'
 import { initAutoUpdate } from './updater'
 import { gitStatus, gitDiff, gitCommit, gitStash, gitWorktree } from './git'
 import { listDir, searchTranscripts, getSubagentHistory, saveExport, editPermissionRule } from './extras'
-import { VIEWABLE_EXTENSIONS } from './documents'
+import { VIEWABLE_EXTENSIONS, sourceOfViewableUrl } from './documents'
+import { googleUrl } from '../shared/search'
 import type {
   PermissionAnswer, PermissionMode, Rect, ImageAttachment, CreateSessionOptions, EffortLevel, ForkOptions, DownloadInfo,
   ElicitationAnswer, McpServerSpec,
@@ -107,7 +108,7 @@ function createWindow() {
     icon: join(import.meta.dirname, '../../build/icon.png'),
     frame: false,
     webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.mjs'),
+      preload: join(import.meta.dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -267,6 +268,17 @@ ipcMain.handle('browser:find', (_e, id: string, text: string, forward: boolean, 
 ipcMain.handle('browser:stopFind', (_e, id: string) => agents.browserIfOpen(id)?.stopFind())
 ipcMain.handle('browser:setZoom', (_e, id: string, factor: number) => agents.browserOf(id).setZoom(factor))
 ipcMain.handle('browser:devTools', (_e, id: string) => agents.browserOf(id).devTools())
+// The selection bubble of a browser-panel page (src/preload/page.ts).
+ipcMain.on('page:selection', (e, action: unknown, text: unknown) => {
+  const sessionId = sessionOfWebContents(e.sender.id)
+  if (!sessionId || typeof text !== 'string' || !text.trim()) return
+  const browser = agents.browserIfOpen(sessionId)
+  if (action === 'google') browser?.newTab(googleUrl(text))
+  else if (action === 'ask') {
+    const url = e.sender.getURL()
+    win?.webContents.send('browser:ask', sessionId, text.slice(0, 20000), e.sender.getTitle(), sourceOfViewableUrl(url) ?? url)
+  }
+})
 ipcMain.handle('browser:openPath', async (_e, path: string) => { await shell.openPath(path) })
 ipcMain.handle('browser:showInFolder', (_e, path: string) => shell.showItemInFolder(path))
 ipcMain.handle('browser:openFile', async (_e, id: string, path?: string) => {

@@ -130,7 +130,7 @@ function Message({ item, ctx, nested = false }: { item: ChatItem; ctx?: MessageC
             </div>
           )}
           {item.text.trim() && (
-            <div className={`bg-user rounded-2xl rounded-tr-md px-4 py-2.5 whitespace-pre-wrap break-words leading-relaxed ${nested ? 'text-[13px]' : 'text-[14.5px]'}`}>
+            <div className={`bg-user rounded-2xl rounded-tr-md px-4 py-2.5 max-w-full whitespace-pre-wrap wrap-anywhere leading-relaxed ${nested ? 'text-[13px]' : 'text-[14.5px]'}`}>
               {item.text}
             </div>
           )}

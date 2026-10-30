@@ -107,7 +107,7 @@ function pieSvg(names: string[]) {
 
 // Page stylesheets can define any custom property, so these names are ours and the page colours are the fallback.
 const PIE_CSS = `
-  .pie { display: block; overflow: visible; filter: drop-shadow(0 6px 16px rgba(0,0,0,.4)); animation: mymux-pie .12s ease-out; }
+  .pie { display: block; overflow: visible; animation: mymux-pie .12s ease-out; }
   @keyframes mymux-pie { from { opacity: 0; transform: scale(.8) } }
   .pie path { fill: var(--mymux-pie-bg, #161920); stroke: var(--mymux-pie-line, #343a47); stroke-width: 1; }
   .pie text { fill: var(--mymux-pie-fg, #e6e8ee); text-anchor: middle; pointer-events: none; font: 500 10.5px system-ui, -apple-system, "Segoe UI", sans-serif; }

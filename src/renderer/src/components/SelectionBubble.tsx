@@ -1,14 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { MessageCircle, Search } from 'lucide-react'
-import { askAbout, googleIt, quoteSelection, sendQuickAsk } from '../actions'
+import { googleIt, quoteSelection, sendQuickAsk } from '../actions'
+import { useStore } from '../store'
 import { useSettings } from '../settings'
 import { HOLD_MS, openPie } from '../../../shared/pie'
 
 /**
  * "Ask mymux" / "Google it" over text selected inside the container (the chat transcript); holding
  * Ask mymux opens the pie of quick questions. Pages in the browser panel get the same bubble from src/preload/page.ts.
+ * `read` and `quote` let the code editor supply the exact selection and how it reads in a message.
  */
-export default function SelectionBubble({ sessionId, container }: { sessionId: string; container: RefObject<HTMLElement | null> }) {
+export default function SelectionBubble({ sessionId, container, read, quote = quoteSelection }: {
+  sessionId: string; container: RefObject<HTMLElement | null>; read?(): string; quote?(text: string): string
+}) {
   const [pos, setPos] = useState<{ left: number; top: number; text: string } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const closePie = useRef<(() => void) | null>(null)
@@ -18,7 +22,7 @@ export default function SelectionBubble({ sessionId, container }: { sessionId: s
     if (!el) return
     const show = () => {
       const sel = window.getSelection()
-      const text = sel?.toString().trim() ?? ''
+      const text = (read ? read() : sel?.toString())?.trim() ?? ''
       if (!sel || sel.rangeCount === 0 || !text || !el.contains(sel.anchorNode) || !el.contains(sel.focusNode)) return setPos(null)
       const r = sel.getRangeAt(0).getBoundingClientRect()
       if (r.width === 0 && r.height === 0) return setPos(null)
@@ -35,7 +39,8 @@ export default function SelectionBubble({ sessionId, container }: { sessionId: s
     document.addEventListener('keyup', onKeyUp)
     document.addEventListener('keydown', onKey)
     document.addEventListener('selectionchange', onChange)
-    el.addEventListener('scroll', hide)
+    // Capturing, because the editor scrolls an element inside the container.
+    el.addEventListener('scroll', hide, true)
     window.addEventListener('resize', hide)
     return () => {
       document.removeEventListener('mouseup', onUp)
@@ -43,10 +48,10 @@ export default function SelectionBubble({ sessionId, container }: { sessionId: s
       document.removeEventListener('keyup', onKeyUp)
       document.removeEventListener('keydown', onKey)
       document.removeEventListener('selectionchange', onChange)
-      el.removeEventListener('scroll', hide)
+      el.removeEventListener('scroll', hide, true)
       window.removeEventListener('resize', hide)
     }
-  }, [container])
+  }, [container, read])
 
   useEffect(() => { if (!pos) closePie.current?.() }, [pos])
   useEffect(() => () => closePie.current?.(), [])
@@ -57,7 +62,9 @@ export default function SelectionBubble({ sessionId, container }: { sessionId: s
     if (pos && ref.current) setBox({ w: ref.current.offsetWidth, h: ref.current.offsetHeight })
   }, [pos])
   if (!pos) return null
-  const left = Math.min(Math.max(8, pos.left - box.w / 2), window.innerWidth - box.w - 8)
+  // Stays inside its panel too: a resize handle under the bubble would take its clicks.
+  const area = container.current?.getBoundingClientRect()
+  const left = Math.min(Math.max((area?.left ?? 0) + 8, pos.left - box.w / 2), (area?.right ?? window.innerWidth) - box.w - 8)
   const top = pos.top - box.h - 8 >= 4 ? pos.top - box.h - 8 : pos.top + 24
 
   const finish = () => {
@@ -81,7 +88,7 @@ export default function SelectionBubble({ sessionId, container }: { sessionId: s
         parent: document.body, x, y, names: asks.map((q) => q.name),
         // The native browser view would cover anything drawn over it, so the pie stays over the chat.
         bounds: container.current?.getBoundingClientRect(),
-        onPick: (i) => { sendQuickAsk(sessionId, quoteSelection(pos.text), asks[i].id); finish() },
+        onPick: (i) => { sendQuickAsk(sessionId, quote(pos.text), asks[i].id); finish() },
         onClose: () => { closePie.current = null },
       })
     }, HOLD_MS)
@@ -91,7 +98,7 @@ export default function SelectionBubble({ sessionId, container }: { sessionId: s
   return (
     <div ref={ref} onMouseDown={(e) => e.preventDefault()} style={{ left, top }}
       className="fixed z-50 flex gap-0.5 p-[3px] rounded-[10px] border border-border-strong bg-bg-elev shadow-lg text-[12.5px] font-medium text-fg select-none fade-in">
-      <button className={btn} onMouseDown={press} onClick={() => act(askAbout)} title="Drži za brza pitanja"><MessageCircle size={13} className="text-accent" /> Ask mymux</button>
+      <button className={btn} onMouseDown={press} onClick={() => act((sid, text) => useStore.getState().appendDraft(sid, quote(text)))} title="Drži za brza pitanja"><MessageCircle size={13} className="text-accent" /> Ask mymux</button>
       <button className={btn} onClick={() => act(googleIt)}><Search size={13} /> Google it</button>
     </div>
   )

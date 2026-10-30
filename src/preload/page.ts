@@ -102,7 +102,7 @@ function quickAsks(): Promise<Quick[]> {
 }
 
 /** Opens the pie if the mouse stays down long enough. */
-function hold(e: MouseEvent, onHeld: () => void, onPick: (quick: Quick) => void) {
+function hold(e: MouseEvent, onHeld: () => void, onPick: (quick: Quick) => void, onClosed?: () => void) {
   const asks = quickAsks()
   const release = () => { clearTimeout(holdTimer); window.removeEventListener('mouseup', release, true) }
   window.addEventListener('mouseup', release, true)
@@ -114,7 +114,7 @@ function hold(e: MouseEvent, onHeld: () => void, onPick: (quick: Quick) => void)
       closePie = openPie({
         parent: root!, x: e.clientX, y: e.clientY, names: list.map((q) => q.name),
         onPick: (i) => onPick(list[i]),
-        onClose: () => { closePie = null },
+        onClose: () => { closePie = null; onClosed?.() },
       })
     })
   }, HOLD_MS)
@@ -126,7 +126,7 @@ function holdForPie(e: MouseEvent) {
     ipcRenderer.send('page:selection', 'ask', picked, quick.id)
     hide()
     window.getSelection()?.removeAllRanges()
-  })
+  }, () => { bubble!.style.display = 'flex' })
 }
 
 function hide() {

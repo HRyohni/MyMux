@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Save, RefreshCw, ExternalLink } from 'lucide-react'
 import { basicSetup } from 'codemirror'
 import { EditorState, Prec, type Text } from '@codemirror/state'
@@ -9,6 +9,7 @@ import { languages } from '@codemirror/language-data'
 import { tags as t } from '@lezer/highlight'
 import { useStore } from '../store'
 import { errText } from '../actions'
+import SelectionBubble from './SelectionBubble'
 
 /** Everything about an open file that must outlive the panel (hidden browser, conversation tucked to the edge). */
 interface OpenDoc {
@@ -98,6 +99,20 @@ export default function CodeEditor({ sessionId, cwd, path, visible, onPreview }:
   const [conflict, setConflict] = useState(false)
   const [dirty, setDirty] = useState(false)
   const key = docKey(sessionId, path)
+
+  const readSelection = useCallback(() => {
+    const state = view.current?.state
+    return state ? state.sliceDoc(state.selection.main.from, state.selection.main.to) : ''
+  }, [])
+  // Names the file and lines, so Claude can find the code without searching for it.
+  const quoteCode = useCallback((text: string) => {
+    const state = view.current?.state
+    if (!state) return `${text}\n\n`
+    const first = state.doc.lineAt(state.selection.main.from).number
+    const last = state.doc.lineAt(state.selection.main.to).number
+    const fence = text.includes('```') ? '````' : '```'
+    return `${path}:${first}${last > first ? `-${last}` : ''}\n${fence}\n${text}\n${fence}\n\n`
+  }, [path])
 
   const mark = (doc: OpenDoc, state: EditorState) => {
     const now = !state.doc.eq(doc.saved)
@@ -200,6 +215,7 @@ export default function CodeEditor({ sessionId, cwd, path, visible, onPreview }:
       )}
       {error && <div className="shrink-0 px-3 py-1.5 border-b border-border text-[12px] text-danger">{error}</div>}
       <div ref={host} className="flex-1 min-h-0 overflow-hidden" />
+      {visible && <SelectionBubble sessionId={sessionId} container={host} read={readSelection} quote={quoteCode} />}
     </div>
   )
 }

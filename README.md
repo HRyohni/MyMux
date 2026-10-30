@@ -59,8 +59,14 @@ Aplikacija se sama ažurira: nova verzija se preuzme u pozadini i instalira pri 
 ### Browser panel
 - Svaka sesija ima svoje tabove. Claude ih koristi preko ugrađenih `browser_*` alata (bez traženja odobrenja), a ti ih vidiš uživo i možeš sam klikati ili upisati URL.
 - Otvara **PDF, DOCX, XLSX/CSV, PPTX, Markdown** i tekst. Ikona uz putanju u Read/Edit/Write kartici otvara tu datoteku u panelu.
+- **Editor koda**: klik na datoteku (stablo, kartice alata, izmijenjene datoteke) otvara je kao tab u CodeMirror editoru s bojanjem sintakse, sklapanjem blokova, pretragom i `Ctrl+S`. Izmjene na disku (npr. Claudeove) pojave se same, a ako imaš nespremljene izmjene, editor pita što da napravi.
 - Stablo datoteka radne mape, zoom, pretraga na stranici, DevTools i popis preuzimanja.
 - **Označi tekst** (na stranici ili u razgovoru) i pojavi se oblačić: *Ask mymux* citira odabrano u polje za poruku (s izvorom), *Google it* otvara pretragu u novom tabu.
+- **Brza pitanja**: drži *Ask mymux* i otvara se okrugli izbornik; odabrano pitanje odmah ide Claudeu zajedno s označenim. Pitanja mijenjaš u Postavke → Brza pitanja.
+- **Pokaži element** (nišan u browser panelu ili `Ctrl+Shift+E`): pokaži dio stranice i klikni. Element ide u polje za poruku kao prilog sa selektorom, tekstom, HTML-om i izrezanom slikom, pa Claude zna točno na što misliš. Držanje na elementu otvara brza pitanja, Esc odustaje. Sadržaj unutar iframeova bira se kao cijeli iframe.
+
+### Povlačenje u rub
+U splitu strelica u zaglavlju (ili `Ctrl+Shift+H`) povlači razgovor u usku traku uz desni rub. Razgovor i dalje radi, a točka pokazuje radi li ili te čeka. Klik na traku (ili `Ctrl+Shift+J` za zadnji) vraća ga na isto mjesto.
 
 ### Git, sesije i izvoz
 - **Git** (ikona grane): izmjene u radnom stablu s diffom prema HEAD-u, commit, stash i *Novi worktree + razgovor* da dva razgovora ne diraju iste datoteke.

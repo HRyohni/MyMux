@@ -19,6 +19,8 @@
 
 ---
 
+![mymux: Claude's conversation next to a live browser panel](docs/screenshots/hero.png)
+
 ## Why mymux
 
 Claude Code is powerful, but following several long-running conversations in terminal windows is hard. mymux keeps all of Claude Code and gives it a proper interface:
@@ -44,6 +46,17 @@ The app updates itself: new versions download in the background and install when
 Windows is the tested platform. macOS (dmg) and Linux (AppImage) builds are configured but untested, so reports and fixes are very welcome.
 
 ## Features
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/pie.png" alt="Round quick question menu over selected text"><br><b>Hold <i>Ask mymux</i></b> to send a quick question about a selection.</td>
+    <td width="50%"><img src="docs/screenshots/editor.png" alt="Code editor in the browser panel"><br><b>Edit code next to the chat</b> and ask about any selection.</td>
+  </tr>
+</table>
+
+![Pointing at an element on a page and adding it to the message](docs/screenshots/picker.png)
+
+*Point at any part of a page, and Claude gets the element's selector, text, HTML and a picture of it.*
 
 ### Panes and groups
 - **Split panes**: conversations side by side, to the right or below, each with its own browser. Drag a conversation from the sidebar into any pane.

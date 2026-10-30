@@ -5,200 +5,199 @@
 <h1 align="center">mymux</h1>
 
 <p align="center">
-  Desktop chat sučelje za <b>Claude Code</b>: više razgovora usporedno, svaki sa svojim vidljivim browserom.<br>
-  Zamjena za wmux, bez terminala i konzolnog izgleda.
+  <b>A desktop app for Claude Code that feels like a chat, not a terminal.</b><br>
+  Run several conversations side by side and watch each one work in its own live browser.
 </p>
 
 <p align="center">
-  <a href="https://github.com/HRyohni/MyMux/releases/latest">Preuzmi</a> ·
-  <a href="#značajke">Značajke</a> ·
-  <a href="#prečaci">Prečaci</a> ·
-  <a href="#razvoj">Razvoj</a>
+  <a href="https://github.com/HRyohni/MyMux/releases/latest"><b>Download</b></a> ·
+  <a href="#why-mymux">Why mymux</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#keyboard-shortcuts">Shortcuts</a> ·
+  <a href="#development">Development</a>
 </p>
 
 ---
 
-mymux pokreće Claude Code preko [Claude Agent SDK-a](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) i prikazuje poruke,
-pozive alata, diffove i odobrenja kao normalan chat. Pored razgovora je browser panel u kojem gledaš što Claude radi na webu
-(i možeš sam klikati), a otvara i PDF, Word, Excel, PowerPoint i Markdown datoteke.
+## Why mymux
 
-Koristi istu prijavu, modele, postavke, `CLAUDE.md`, skillove i hookove kao tvoj Claude Code CLI
-(`settingSources: user, project, local`), pa ništa ne treba posebno podešavati.
+Claude Code is powerful, but following several long-running conversations in terminal windows is hard. mymux keeps all of Claude Code and gives it a proper interface:
 
-## Instalacija
+- **See what Claude sees.** Every conversation has a real browser panel. Claude drives it, you watch live, and you can click in it yourself.
+- **Run many conversations at once.** Split panes and groups keep each task in view, and the layout comes back after a restart.
+- **Review before anything changes.** Edits appear as diffs in the permission card. Reject one and tell Claude what to do instead.
+- **Open your documents next to the chat.** PDF, Word, Excel, PowerPoint and Markdown files open in the panel, for you and for Claude.
+- **No setup.** It uses the login, models, settings, `CLAUDE.md`, skills and hooks you already have in the Claude Code CLI.
 
-1. Preuzmi `mymux Setup x.y.z.exe` s [Releases](https://github.com/HRyohni/MyMux/releases/latest) i pokreni ga.
-2. Budi prijavljen u Claude Code (`claude` → `/login`) ili postavi `ANTHROPIC_API_KEY`.
-3. Pokreni mymux, odaberi radnu mapu i piši.
+mymux runs Claude Code through the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) (`settingSources: user, project, local`) and renders messages, tool calls, diffs and approvals as a normal chat.
 
-Aplikacija se sama ažurira: nova verzija se preuzme u pozadini i instalira pri zatvaranju.
+## Install
 
-> Instaler nije potpisan, pa Windows SmartScreen pri prvom pokretanju traži potvrdu (*Više informacija → Ipak pokreni*).
+1. Download `mymux Setup x.y.z.exe` from [Releases](https://github.com/HRyohni/MyMux/releases/latest) and run it.
+2. Log in to Claude Code (`claude`, then `/login`) or set `ANTHROPIC_API_KEY`.
+3. Start mymux, pick a working folder and start typing.
 
-## Značajke
+The app updates itself: new versions download in the background and install when you close it.
 
-### Paneli i grupe
-- **Split panela**: više razgovora usporedno (desno ili dolje), svaki sa svojim browserom. Razgovor iz bočne trake povučeš u bilo koji panel.
-- **Grupe**: svaka grupa je zaseban raspored panela (npr. tri razgovora za jedan projekt, tri za drugi). Dvoklik preimenuje, X zatvara.
-- **Raspored se pamti**: grupe, splitovi, omjeri i otvoreni razgovori vraćaju se nakon ponovnog pokretanja. Imenovani rasporedi su u *Postavke → Rasporedi*.
-- **Pregled svih razgovora** (Ctrl+Shift+O): stanje, kontekst, trošak i broj izmjena po razgovoru.
+> The installer is not code-signed yet, so Windows SmartScreen asks for confirmation on first launch (*More info → Run anyway*).
 
-### Razgovor
-- **Odobrenja s diffom**: Edit/Write se prije odobrenja vide kao diff. Uz *Odbij* možeš napisati što da Claude napravi umjesto toga.
-- **Pitanja i plan**: `AskUserQuestion` je kartica s ponuđenim odgovorima; plan iz Plan načina je čitljiv dokument s gumbima za odobravanje ili nastavak planiranja.
-- **Slash komande i `@` datoteke**: `/` nudi ugrađene komande, skillove i komande projekta; `@` pretražuje radnu mapu (poštuje `.gitignore`).
-- **Prilozi**: spajalica, povlačenje ili Ctrl+V. Slike idu kao slike, ostalo kao putanja.
-- **Red čekanja**: poruka poslana dok Claude radi čeka kraj odgovora, ili je pošalješ odmah (munja) da je Claude vidi između dva koraka.
-- **Rad s porukama**: kopiraj, uredi, ponovi, grananje u novi panel i *vrati datoteke* na stanje prije te poruke (SDK file checkpointing).
-- **Zadaci i podagenti**: lista zadataka je prikvačena iznad polja dok ima nedovršenih; Agent kartica sadrži cijeli razgovor podagenta.
-- **Kontekst i trošak**: popunjenost kontekstnog prozora, trošak sesije i trošak svakog odgovora.
-- **Model, effort i način odobravanja** biraju se ispod polja za poruku, po razgovoru.
-- **Izbornik „⋯”**: screenshot browsera kao prilog, `/add-dir`, prošireno razmišljanje, brzi način i tvoji predlošci poruka.
-- **Pozadinski zadaci, hookovi i MCP unos**: pozadinski agenti imaju gumb za zaustavljanje, greške hookova se ispisuju u razgovoru, MCP obrasci i URL koraci dolaze kao kartice.
+Windows is the tested platform. macOS (dmg) and Linux (AppImage) builds are configured but untested, so reports and fixes are very welcome.
+
+## Features
+
+### Panes and groups
+- **Split panes**: conversations side by side, to the right or below, each with its own browser. Drag a conversation from the sidebar into any pane.
+- **Groups**: each group is a separate pane layout, for example three conversations for one project and three for another. Double-click to rename.
+- **Persistent layout**: groups, splits, sizes and open conversations return after a restart. Save named layouts in *Settings → Layouts*.
+- **Overview** (`Ctrl+Shift+O`): status, context, cost and change count for every conversation.
+
+### Conversation
+- **Approvals with diffs**: Edit and Write show a diff before you approve. Next to *Reject* you can say what Claude should do instead.
+- **Questions and plans**: `AskUserQuestion` is a card with answer options. A plan is a readable document with buttons to approve it or keep planning.
+- **Slash commands and `@` files**: `/` offers built-in commands, skills and project commands. `@` searches the working folder and respects `.gitignore`.
+- **Attachments**: paperclip, drag and drop, or `Ctrl+V`. Images go as images, everything else as a path.
+- **Message queue**: a message sent while Claude works waits for the end of the reply, or send it now (lightning icon) so Claude sees it between two steps.
+- **Message actions**: copy, edit, retry, branch into a new pane, and restore files to their state before that message (SDK file checkpointing).
+- **Tasks and subagents**: the task list stays pinned above the input while work is unfinished, and an Agent card holds the subagent's whole conversation.
+- **Context and cost**: context window usage, session cost and the cost of each reply.
+- **Model, effort and permission mode** are chosen under the input, per conversation.
+- **"⋯" menu**: attach a browser screenshot, `/add-dir`, extended thinking, fast mode and your own prompt templates.
+- **Background tasks, hooks and MCP input**: background agents have a stop button, hook errors appear in the conversation, and MCP forms and URL steps arrive as cards.
 
 ### Browser panel
-- Svaka sesija ima svoje tabove. Claude ih koristi preko ugrađenih `browser_*` alata (bez traženja odobrenja), a ti ih vidiš uživo i možeš sam klikati ili upisati URL.
-- Otvara **PDF, DOCX, XLSX/CSV, PPTX, Markdown** i tekst. Ikona uz putanju u Read/Edit/Write kartici otvara tu datoteku u panelu.
-- **Editor koda**: klik na datoteku (stablo, kartice alata, izmijenjene datoteke) otvara je kao tab u CodeMirror editoru s bojanjem sintakse, sklapanjem blokova, pretragom i `Ctrl+S`. Izmjene na disku (npr. Claudeove) pojave se same, a ako imaš nespremljene izmjene, editor pita što da napravi.
-- Stablo datoteka radne mape, zoom, pretraga na stranici, DevTools i popis preuzimanja.
-- **Označi tekst** (na stranici ili u razgovoru) i pojavi se oblačić: *Ask mymux* citira odabrano u polje za poruku (s izvorom), *Google it* otvara pretragu u novom tabu.
-- **Brza pitanja**: drži *Ask mymux* i otvara se okrugli izbornik; odabrano pitanje odmah ide Claudeu zajedno s označenim. Pitanja mijenjaš u Postavke → Brza pitanja.
-- **Pokaži element** (nišan u browser panelu ili `Ctrl+Shift+E`): pokaži dio stranice i klikni. Element ide u polje za poruku kao prilog sa selektorom, tekstom, HTML-om i izrezanom slikom, pa Claude zna točno na što misliš. Držanje na elementu otvara brza pitanja, Esc odustaje. Sadržaj unutar iframeova bira se kao cijeli iframe.
+- Each session has its own tabs. Claude uses them through built-in `browser_*` tools without asking for approval, and you see everything live. You can also click around or enter a URL yourself.
+- Opens **PDF, DOCX, XLSX/CSV, PPTX, Markdown** and text files. The icon next to a path in a Read, Edit or Write card opens that file in the panel.
+- File tree of the working folder, zoom, find in page, DevTools and a download list.
+- **Select text** on a page or in the chat and a bubble appears: *Ask mymux* quotes the selection into the input with its source, *Google it* searches for it in a new tab.
 
-### Povlačenje u rub
-U splitu strelica u zaglavlju (ili `Ctrl+Shift+H`) povlači razgovor u usku traku uz desni rub. Razgovor i dalje radi, a točka pokazuje radi li ili te čeka. Klik na traku (ili `Ctrl+Shift+J` za zadnji) vraća ga na isto mjesto.
+### Git, sessions and export
+- **Git** (branch icon): working tree changes with a diff against HEAD, commit, stash, and *New worktree + conversation* so two conversations never touch the same files.
+- **Sessions**: resume any earlier Claude Code session with its history, search by title and transcript content, rename, archive, delete and fork.
+- **Export** a conversation to Markdown or HTML.
+- **Conversations can collaborate**: Claude sees your other open conversations (`session_list`) and can message them (`session_send`, with your approval).
+- **Remote Control** (phone icon): continue the same conversation from claude.ai or the mobile app. Requires a claude.ai account, it does not work with an API key.
 
-### Git, sesije i izvoz
-- **Git** (ikona grane): izmjene u radnom stablu s diffom prema HEAD-u, commit, stash i *Novi worktree + razgovor* da dva razgovora ne diraju iste datoteke.
-- **Sesije**: nastavak bilo koje prijašnje Claude Code sesije s poviješću, pretraga po naslovu i sadržaju transkripta, preimenovanje, arhiviranje, brisanje i fork.
-- **Izvoz** razgovora u Markdown ili HTML.
-- **Suradnja razgovora**: Claude vidi druge otvorene razgovore (`session_list`) i može im poslati poruku (`session_send`, uz tvoje odobrenje).
-- **Remote Control** (ikona mobitela): isti razgovor nastaviš s claude.ai ili mobilne aplikacije. Traži claude.ai račun, ne radi s API ključem.
+### Notifications
+A notification arrives when Claude finishes, waits for approval, or has a question or a plan, and clicking it opens that conversation. The tray icon shows how many conversations are waiting for you and how many are working. A short sound marks the end of a reply, with a lower tone on errors, and the speaker button turns it off.
 
-### Obavijesti
-Obavijest stiže kad Claude završi, čeka odobrenje, ima pitanje ili plan; klik otvara taj razgovor. Ikona u traci pokazuje koliko razgovora čeka tebe,
-a koliko radi. Kraj odgovora prati kratak zvuk (dublji kod greške), koji se gasi gumbom sa zvučnikom.
+## Settings
 
-## Postavke
+`Ctrl+,` opens settings: theme, display size, sound, default model, effort and permission mode, shortcuts, prompt templates and layouts. These tabs apply to the conversation in the focused pane:
 
-`Ctrl+,` otvara postavke: tema, veličina prikaza, zvuk, zadani model, effort i način odobravanja, prečaci, predlošci poruka i rasporedi.
-Kartice za razgovor u fokusiranom panelu:
+- **MCP servers**: status, errors, reconnect and enable or disable. Servers added in the app apply to every new mymux conversation and leave your Claude Code configuration alone.
+- **Permissions and hooks**: add and remove rules (by default in the project's `.claude/settings.local.json`). Hooks are read-only here.
+- **Account and usage**: subscription and limit usage (5 hours, 7 days).
 
-- **MCP serveri**: status, greške, ponovno spajanje i uključivanje. Serveri dodani u aplikaciji vrijede za svaki novi razgovor u mymuxu i ne diraju konfiguraciju Claude Codea.
-- **Dopuštenja i hookovi**: pravila se dodaju i uklanjaju (zadano u `.claude/settings.local.json` projekta); hookovi se samo pregledavaju.
-- **Račun i potrošnja**: pretplata i iskorištenost limita (5 sati, 7 dana).
+## Keyboard shortcuts
 
-## Prečaci
-
-| Tipke | Akcija |
+| Keys | Action |
 |---|---|
-| `Ctrl+N` | novi razgovor u fokusiranom panelu |
-| `Ctrl+\` / `Ctrl+Shift+\` | podijeli panel desno / dolje |
-| `Ctrl+W` | zatvori panel (razgovor ostaje u bočnoj traci) |
-| `Ctrl+T` | nova grupa |
-| `Ctrl+1` … `Ctrl+9` | prebaci na grupu |
-| `Ctrl+Tab` / `Ctrl+Shift+Tab` | sljedeća / prethodna grupa |
-| `Ctrl+Shift+W` | zatvori grupu |
-| `Ctrl+B` | prikaži / sakrij browser panel |
-| `Ctrl+Shift+B` | prikaži / sakrij bočnu traku |
-| `Ctrl+F` | pretraži razgovor (u browseru: stranicu) |
-| `Ctrl+Shift+O` | pregled svih razgovora |
-| `Ctrl+,` | postavke |
-| `Enter` / `Shift+Enter` | pošalji / novi red |
+| `Ctrl+N` | new conversation in the focused pane |
+| `Ctrl+\` / `Ctrl+Shift+\` | split pane right / down |
+| `Ctrl+W` | close pane (the conversation stays in the sidebar) |
+| `Ctrl+T` | new group |
+| `Ctrl+1` … `Ctrl+9` | switch to group |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | next / previous group |
+| `Ctrl+Shift+W` | close group |
+| `Ctrl+B` | show / hide browser panel |
+| `Ctrl+Shift+B` | show / hide sidebar |
+| `Ctrl+F` | search the conversation (in the browser: the page) |
+| `Ctrl+Shift+O` | overview of all conversations |
+| `Ctrl+,` | settings |
+| `Enter` / `Shift+Enter` | send / new line |
 
-Svi prečaci se mogu promijeniti u postavkama. Dok je fokus u browser panelu vrijede `Ctrl+T`/`Ctrl+W` (tab), `Ctrl+F`, `Ctrl +/-/0` (zoom) i `F12` (DevTools).
+Every shortcut can be changed in settings. While the browser panel has focus, `Ctrl+T`/`Ctrl+W` (tab), `Ctrl+F`, `Ctrl +/-/0` (zoom) and `F12` (DevTools) apply.
 
-## Razvoj
+## Development
 
-Treba Node.js 20+.
+Requires Node.js 20+.
 
 ```bash
 npm install
-npm run dev          # dev mode s hot reloadom
-npm start            # build + pokretanje
+npm run dev          # dev mode with hot reload
+npm start            # build and run
 npm run typecheck
 npm test             # vitest
-npm run dist         # Windows instaler -> dist/
-npm run dist:mac     # macOS dmg (na macOS-u)
-npm run dist:linux   # Linux AppImage (na Linuxu)
-npm run release      # Windows build + objava na GitHub Releases (treba GH_TOKEN)
+npm run dist         # Windows installer -> dist/
+npm run dist:mac     # macOS dmg (on macOS)
+npm run dist:linux   # Linux AppImage (on Linux)
+npm run release      # Windows build + publish to GitHub Releases (needs GH_TOKEN)
 ```
 
-Stack: Electron, electron-vite, React, Tailwind, zustand, Claude Agent SDK, Playwright (preko CDP-a).
+Stack: Electron, electron-vite, React, Tailwind, zustand, Claude Agent SDK, Playwright (over CDP).
 
-### Struktura
+Issues and pull requests are welcome. Testing on macOS and Linux is the most useful help right now.
 
-| Putanja | Sadržaj |
+### Project structure
+
+| Path | Contents |
 |---|---|
-| `src/main/agent.ts` | sesije preko `query()` sa streaming ulazom, odobrenja (`canUseTool`) |
-| `src/main/browser.ts` | `WebContentsView` po tabu + Playwright preko CDP-a |
-| `src/main/browserTools.ts` | in-process MCP server `mymux` s `browser_*` alatima |
-| `src/main/documents.ts` | DOCX (mammoth), XLSX/CSV (SheetJS), PPTX (JSZip), Markdown → HTML za browser panel |
-| `src/main/files.ts` | pretraga za `@` spominjanja, privremeni prilozi |
+| `src/main/agent.ts` | sessions through `query()` with streaming input, approvals (`canUseTool`) |
+| `src/main/browser.ts` | one `WebContentsView` per tab, plus Playwright over CDP |
+| `src/main/browserTools.ts` | in-process `mymux` MCP server with the `browser_*` tools |
+| `src/main/documents.ts` | DOCX (mammoth), XLSX/CSV (SheetJS), PPTX (JSZip) and Markdown to HTML for the browser panel |
+| `src/main/files.ts` | search for `@` mentions, temporary attachments |
 | `src/main/git.ts` | status, diff, commit, stash, worktree |
-| `src/main/extras.ts` | stablo datoteka, pretraga transkripata, podagenti, izvoz, pravila dopuštenja |
+| `src/main/extras.ts` | file tree, transcript search, subagents, export, permission rules |
 | `src/main/updater.ts` | auto-update (electron-updater) |
-| `src/main/index.ts` | prozor, IPC, obavijesti, dev hookovi |
-| `src/preload/` | `window.mymux` API (contextBridge); `page.ts` je preload stranica u browser panelu (oblačić za odabrani tekst) |
-| `src/renderer/` | React UI; čista logika s testovima: `reducer.ts`, `layout.ts`, `diff.ts`, `keys.ts` |
-| `src/shared/ipc.ts` | tipovi IPC ugovora |
+| `src/main/index.ts` | window, IPC, notifications, dev hooks |
+| `src/preload/` | `window.mymux` API (contextBridge); `page.ts` is the preload of browser panel pages (the selection bubble) |
+| `src/renderer/` | React UI; pure logic with tests lives in `reducer.ts`, `layout.ts`, `diff.ts` and `keys.ts` |
+| `src/shared/ipc.ts` | types of the IPC contract |
 
 <details>
-<summary><b>Dev hookovi (env varijable)</b></summary>
+<summary><b>Dev hooks (environment variables)</b></summary>
 
-| Varijabla | Što radi |
+| Variable | What it does |
 |---|---|
-| `MYMUX_AUTOPROMPT` | pošalje prompt odmah nakon pokretanja |
-| `MYMUX_CWD` | radna mapa za autoprompt sesiju |
-| `MYMUX_AUTOOPEN=put.pdf` | otvori datoteku u browser panelu nakon pokretanja |
-| `MYMUX_AUTORESUME=latest\|<id>` | nastavi zadnju (ili zadanu) sesiju iz `MYMUX_CWD` |
-| `MYMUX_AUTOSPLIT=horizontal\|vertical` | podijeli panel nakon pokretanja |
-| `MYMUX_AUTOANSWER=allow\|deny` | automatski odgovara na odobrenja (`MYMUX_AUTOANSWER_DELAY` ms) |
-| `MYMUX_AUTOIMAGE=put.png` | priloži sliku uz `MYMUX_AUTOPROMPT` |
-| `MYMUX_MODE=plan` | način odobravanja za autoprompt sesiju (`plan`, `acceptEdits`, …) |
-| `MYMUX_SCREENSHOT=put.png` | snimi prozor nakon `MYMUX_SCREENSHOT_DELAY` ms (više vrijednosti odvojenih zarezom) |
-| `MYMUX_TOGGLE_SIDEBAR=ms` | sklopi/rasklopi bočnu traku nakon zadanog vremena |
-| `MYMUX_CDP_PORT=9333` | fiksni CDP port za testne skripte (Playwright `connectOverCDP`) |
-| `MYMUX_USER_DATA=mapa` | zaseban profil, da test ne dira pokrenutu aplikaciju |
-| `MYMUX_NO_UPDATE=1` | preskoči provjeru nove verzije |
-| `MYMUX_DEBUG=1` | ispisuje tipove SDK poruka u konzolu |
+| `MYMUX_AUTOPROMPT` | sends a prompt right after startup |
+| `MYMUX_CWD` | working folder of the autoprompt session |
+| `MYMUX_AUTOOPEN=path.pdf` | opens a file in the browser panel after startup |
+| `MYMUX_AUTORESUME=latest\|<id>` | resumes the latest (or given) session from `MYMUX_CWD` |
+| `MYMUX_AUTOSPLIT=horizontal\|vertical` | splits the pane after startup |
+| `MYMUX_AUTOANSWER=allow\|deny` | answers approvals automatically (`MYMUX_AUTOANSWER_DELAY` ms) |
+| `MYMUX_AUTOIMAGE=path.png` | attaches an image to `MYMUX_AUTOPROMPT` |
+| `MYMUX_MODE=plan` | permission mode of the autoprompt session (`plan`, `acceptEdits`, …) |
+| `MYMUX_SCREENSHOT=path.png` | captures the window after `MYMUX_SCREENSHOT_DELAY` ms (several comma-separated values allowed) |
+| `MYMUX_TOGGLE_SIDEBAR=ms` | collapses or expands the sidebar after the given time |
+| `MYMUX_CDP_PORT=9333` | fixed CDP port for test scripts (Playwright `connectOverCDP`) |
+| `MYMUX_USER_DATA=folder` | separate profile, so a test never touches a running app |
+| `MYMUX_NO_UPDATE=1` | skips the update check |
+| `MYMUX_DEBUG=1` | prints SDK message types to the console |
 
-Aplikacija je single-instance: drugo pokretanje s istim profilom samo fokusira postojeći prozor.
+The app is single-instance: a second launch with the same profile only focuses the existing window.
 </details>
 
 <details>
-<summary><b>Kako radi browser panel</b></summary>
+<summary><b>How the browser panel works</b></summary>
 
-- Electron se pokreće s `--remote-debugging-port` na slobodnom localhost portu. Playwright se spaja preko `connectOverCDP`
-  i pronalazi stranicu po jedinstvenom početnom `data:` URL-u (naslov `mymux-<sessionId>`).
-- Alati `mcp__mymux__browser_*` (navigate, open_file, snapshot, get_text, click, type, select, press, scroll, screenshot, eval, back, tabs, wait)
-  su u `allowedTools`, pa ne traže odobrenje. Snapshot označava interaktivne elemente atributom `data-mymux-ref` (e1, e2…).
-- Renderer samo mjeri placeholder `<div>` i šalje `setBounds`. Nativni view je uvijek iznad DOM-a, pa se browser sakrije dok je otvoren dijalog.
-- PDF radi preko Chromium PDF viewera (`webPreferences.plugins: true`). Poveznice koje otvaraju novi prozor otvaraju novi tab.
+- Electron starts with `--remote-debugging-port` on a free localhost port. Playwright connects through `connectOverCDP` and finds the page by its unique initial `data:` URL (title `mymux-<sessionId>`).
+- The `mcp__mymux__browser_*` tools (navigate, open_file, snapshot, get_text, click, type, select, press, scroll, screenshot, eval, back, tabs, wait) are in `allowedTools`, so they need no approval. A snapshot tags interactive elements with a `data-mymux-ref` attribute (e1, e2…).
+- The renderer only measures a placeholder `<div>` and sends `setBounds`. The native view always sits above the DOM, so the browser hides while a dialog is open.
+- PDF uses Chromium's PDF viewer (`webPreferences.plugins: true`). Links that open a new window open a new tab.
 </details>
 
 <details>
-<summary><b>Napomene o Agent SDK-u</b></summary>
+<summary><b>Agent SDK notes</b></summary>
 
-- Uz `includePartialMessages` SDK šalje `assistant` poruku **po svakom bloku**, ne po cijeloj poruci.
-  UI gradi blokove iz `stream_event` događaja, a iz `assistant` poruka uzima samo konačni `input` alata.
-- SDK ne vraća korisnikov prompt natrag; main proces ga sam emitira u UI.
-- Rezultati alata stižu kao `user` poruke s `tool_result` blokovima.
+- With `includePartialMessages` the SDK sends an `assistant` message **per block**, not per whole message. The UI builds blocks from `stream_event` events and takes only the final tool `input` from `assistant` messages.
+- The SDK does not echo the user's prompt, so the main process emits it to the UI itself.
+- Tool results arrive as `user` messages with `tool_result` blocks.
 </details>
 
-## Distribucija
+## Distribution
 
-- **Auto-update** provjerava GitHub Releases repozitorija iz `build.publish` (`HRyohni/MyMux`). Za privatni repozitorij korisnik treba token, pa je praktičan samo javni.
-- **Potpisivanje**: electron-builder potpisuje instaler ako su postavljeni `CSC_LINK` (.pfx ili base64) i `CSC_KEY_PASSWORD`.
-- **Platforme**: Windows (nsis, x64) je isproban; macOS (dmg, arm64/x64) i Linux (AppImage, x64) su konfigurirani, ali nisu isprobani.
+- **Auto-update** checks GitHub Releases of the repository in `build.publish` (`HRyohni/MyMux`). A private repository would need a user token, so it is only practical for a public one.
+- **Signing**: electron-builder signs the installer when `CSC_LINK` (.pfx or base64) and `CSC_KEY_PASSWORD` are set.
+- **Platforms**: Windows (nsis, x64) is tested. macOS (dmg, arm64/x64) and Linux (AppImage, x64) are configured but untested.
 
-## Poznata ograničenja
+## Known limitations
 
-- Vraćanje rasporeda pokreće po jedan Claude Code proces za svaki razgovor koji je bio otvoren.
-- Uređivanje/ponavljanje poruke vraća razgovor, ali ne i datoteke; za to postoji *Vrati datoteke*.
-- MCP serveri s OAuth prijavom autoriziraju se u CLI-ju (`/mcp`); aplikacija prikazuje status i nudi ponovno spajanje.
-- Nema ugrađenog glasovnog unosa (Web Speech API u Electronu ne radi bez Googleovog ključa); Windows diktiranje (Win+H) radi.
-- Dijalozi preko `onUserDialog` nisu podržani; MCP zahtjevi za unos (elicitation) jesu.
-- Prijedlog sljedeće poruke i brzi način ovise o modelu i pretplati.
-- PPTX je pojednostavljen (tekst, tablice, slike, bilješke, bez pozicija i tema); DOCX se renderira bez složenog formatiranja.
-- Pretraga razgovora ne vidi sadržaj sklopljenih kartica alata.
+- Restoring a layout starts one Claude Code process for each conversation that was open.
+- Editing or retrying a message rewinds the conversation but not the files; use *Restore files* for that.
+- MCP servers with OAuth are authorized in the CLI (`/mcp`). The app shows their status and offers a reconnect.
+- There is no built-in voice input, because the Web Speech API in Electron does not work without a Google key. Windows dictation (Win+H) works.
+- Dialogs through `onUserDialog` are not supported. MCP input requests (elicitation) are.
+- Next-message suggestions and fast mode depend on the model and subscription.
+- PPTX is simplified (text, tables, images and notes, without positions or themes), and DOCX renders without complex formatting.
+- Conversation search does not see the content of collapsed tool cards.

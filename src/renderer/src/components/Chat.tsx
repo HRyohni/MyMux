@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useWindowControlsInset } from '../hooks'
 import {
   Folder, PanelRight, Columns2, Rows2, X, Smartphone, Search, GitFork, FileDiff, ListTodo, ChevronRight, FilePlus, FilePen, GitBranch, Download,
-  Square, Bot, MessageSquare,
+  Square, Bot, MessageSquare, ArrowRightToLine,
 } from 'lucide-react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import BrowserPanel from './BrowserPanel'
 import { useStore, leaves, selectLayout } from '../store'
 import { latestTodos, changedFiles, changedFileCount, type ChatItem } from '../reducer'
-import { forkToSplit, errText } from '../actions'
+import { forkToSplit, errText, openFileInPanel } from '../actions'
 import Message, { type MessageContext } from './Message'
 import PermissionCard from './PermissionCard'
 import Composer from './Composer'
@@ -91,8 +91,7 @@ function ChangesModal({ sessionId, items, cwd, onClose }: { sessionId: string; i
     return file.toLowerCase().startsWith(base.toLowerCase() + '/') ? file.slice(base.length + 1) : file
   }
   const open = (path: string) => {
-    useStore.getState().setBrowserOpen(sessionId, true)
-    void window.mymux.browser.openFile(sessionId, path)
+    openFileInPanel(sessionId, cwd, path)
     onClose()
   }
   const total = files.reduce((a, f) => ({ added: a.added + f.added, removed: a.removed + f.removed }), { added: 0, removed: 0 })
@@ -129,6 +128,7 @@ export default function Chat({ sessionId, paneId }: { sessionId: string; paneId:
   const setFindOpen = useStore((s) => s.setFindOpen)
   const splitPane = useStore((s) => s.splitPane)
   const closePane = useStore((s) => s.closePane)
+  const tuckPane = useStore((s) => s.tuckPane)
   const multi = useStore((s) => leaves(selectLayout(s)).length > 1)
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickRef = useRef(true)
@@ -220,6 +220,7 @@ export default function Chat({ sessionId, paneId }: { sessionId: string; paneId:
             className={`${iconBtn} ${browserOpen ? 'text-accent' : ''}`}><PanelRight size={15} /></button>
           <button onClick={() => splitPane(paneId, 'horizontal')} title="Podijeli desno (Ctrl+\)" className={iconBtn}><Columns2 size={15} /></button>
           <button onClick={() => splitPane(paneId, 'vertical')} title="Podijeli dolje (Ctrl+Shift+\)" className={iconBtn}><Rows2 size={15} /></button>
+          {multi && <button onClick={() => tuckPane(paneId)} title="Povuci u rub, razgovor nastavlja raditi (Ctrl+Shift+H)" className={iconBtn}><ArrowRightToLine size={15} /></button>}
           {multi && <button onClick={() => closePane(paneId)} title="Zatvori panel (Ctrl+W)" className={iconBtn}><X size={15} /></button>}
         </div>
       </header>

@@ -1,4 +1,4 @@
-import { BrowserWindow, WebContentsView, app } from 'electron'
+import { BrowserWindow, WebContentsView, app, type WebContents } from 'electron'
 import { chromium, type Browser, type Page } from 'playwright-core'
 import { isAbsolute, join, resolve } from 'node:path'
 import type { BrowserState, BrowserShortcut, FindResult, Rect } from '../shared/ipc'
@@ -26,6 +26,8 @@ export class SessionBrowser {
   private visible = false
   private bounds: Rect = { x: 0, y: 0, width: 0, height: 0 }
   private tabCounter = 0
+  /** The tab waiting for the user to point at an element. */
+  private pickingTab: string | null = null
 
   constructor(
     readonly sessionId: string,
@@ -68,6 +70,7 @@ export class SessionBrowser {
     for (const ev of ['did-navigate', 'did-navigate-in-page', 'did-start-loading', 'did-stop-loading', 'did-fail-load'] as const) {
       wc.on(ev as 'did-navigate', () => this.emitState())
     }
+    wc.on('did-navigate', () => { if (tab.id === this.pickingTab) this.setPicking(false) })
     wc.on('page-title-updated', () => this.emitState())
     wc.on('found-in-page', (_e, r) => {
       if (tab.id === this.activeId) this.events.onFind({ sessionId: this.sessionId, matches: r.matches, active: r.activeMatchOrdinal })
@@ -80,6 +83,7 @@ export class SessionBrowser {
       if (ctrl && !input.shift && key === 'f') { e.preventDefault(); this.events.onShortcut('find') }
       else if (ctrl && !input.shift && key === 't') { e.preventDefault(); this.events.onShortcut('newTab') }
       else if (ctrl && !input.shift && key === 'w') { e.preventDefault(); this.events.onShortcut('closeTab') }
+      else if (ctrl && input.shift && key === 'e') { e.preventDefault(); this.events.onShortcut('pick') }
       else if (ctrl && (key === '+' || key === '=')) { e.preventDefault(); this.setZoom(wc.getZoomFactor() + 0.1) }
       else if (ctrl && key === '-') { e.preventDefault(); this.setZoom(wc.getZoomFactor() - 0.1) }
       else if (ctrl && key === '0') { e.preventDefault(); this.setZoom(1) }
@@ -92,6 +96,7 @@ export class SessionBrowser {
 
   selectTab(id: string) {
     if (!this.tabs.some((t) => t.id === id)) return
+    if (this.pickingTab && this.pickingTab !== id) this.setPicking(false)
     this.activeId = id
     for (const t of this.tabs) t.view.setVisible(this.visible && t.id === id)
     if (this.visible) this.active.view.setBounds(this.bounds)
@@ -106,6 +111,7 @@ export class SessionBrowser {
       void this.tabs[0].view.webContents.loadURL(this.blankUrl(id)).catch(() => {})
       return
     }
+    if (this.pickingTab === id) this.setPicking(false)
     const [tab] = this.tabs.splice(idx, 1)
     this.disposeTab(tab)
     if (this.activeId === id) this.selectTab(this.tabs[Math.max(0, idx - 1)].id)
@@ -142,6 +148,7 @@ export class SessionBrowser {
       tabs,
       activeTab: this.activeId,
       zoom: wc.getZoomFactor(),
+      picking: this.pickingTab !== null,
     }
   }
 
@@ -194,6 +201,38 @@ export class SessionBrowser {
 
   async capture(): Promise<string> {
     return (await this.view.webContents.capturePage()).toPNG().toString('base64')
+  }
+
+  /** The page draws the highlight and reports the element; keyboard focus lets it hear Esc. */
+  setPicking(on: boolean) {
+    const previous = this.tabs.find((t) => t.id === this.pickingTab)?.view.webContents
+    if (previous && !previous.isDestroyed()) previous.send('page:pick', false)
+    this.pickingTab = on ? this.activeId : null
+    if (on) {
+      this.view.webContents.send('page:pick', true)
+      this.view.webContents.focus()
+    }
+    this.emitState()
+  }
+
+  /** The page stopped picking on its own (element chosen, Esc). */
+  pickEnded(wc: WebContents) {
+    if (this.tabs.find((t) => t.id === this.pickingTab)?.view.webContents !== wc) return
+    this.pickingTab = null
+    this.emitState()
+  }
+
+  /** PNG of a part of a page as base64. The rect is in CSS pixels of the page's viewport. */
+  async captureElement(wc: WebContents, r: Rect): Promise<string | undefined> {
+    const z = wc.getZoomFactor()
+    const pad = 8
+    const x = Math.max(0, Math.round((r.x - pad) * z))
+    const y = Math.max(0, Math.round((r.y - pad) * z))
+    const width = Math.min(this.bounds.width - x, Math.round((r.width + pad * 2) * z))
+    const height = Math.min(this.bounds.height - y, Math.round((r.height + pad * 2) * z))
+    if (width < 2 || height < 2) return undefined
+    const img = await wc.capturePage({ x, y, width, height })
+    return (img.getSize().width > 1200 ? img.resize({ width: 1200 }) : img).toPNG().toString('base64')
   }
 
   devTools() {

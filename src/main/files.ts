@@ -1,10 +1,11 @@
 import { app } from 'electron'
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { readdir } from 'node:fs/promises'
-import { basename, join } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import { rankFiles } from '../shared/fuzzy'
+import type { TextFile } from '../shared/ipc'
 
 const SKIP_DIRS = new Set([
   '.git', 'node_modules', 'dist', 'out', 'build', 'target', '.next', '.venv', 'venv', '__pycache__', '.cache', '.idea', '.vs',
@@ -53,6 +54,27 @@ export async function searchFiles(cwd: string, query: string): Promise<string[]>
 }
 
 /** Stores an attachment that has no path of its own (pasted or dragged out of another app). */
+const MAX_EDITABLE = 2 * 1024 * 1024
+
+export function readTextFile(cwd: string, path: string): TextFile {
+  const abs = resolve(cwd, path)
+  const { size, mtimeMs } = statSync(abs)
+  if (size > MAX_EDITABLE) throw new Error('Datoteka je prevelika za editor')
+  const data = readFileSync(abs)
+  if (data.subarray(0, 8000).includes(0)) throw new Error('Datoteka nije tekstualna')
+  return { path: abs, content: data.toString('utf-8'), mtime: mtimeMs }
+}
+
+export function writeTextFile(path: string, content: string, expectedMtime: number | null): number {
+  if (expectedMtime !== null && fileMtime(path) !== expectedMtime) throw new Error('CONFLICT')
+  writeFileSync(path, content, 'utf-8')
+  return statSync(path).mtimeMs
+}
+
+export function fileMtime(path: string): number | null {
+  try { return statSync(path).mtimeMs } catch { return null }
+}
+
 export function saveTempFile(name: string, base64: string): string {
   const dir = join(app.getPath('temp'), 'mymux-attachments', randomUUID().slice(0, 8))
   mkdirSync(dir, { recursive: true })

@@ -2,13 +2,15 @@
 
 export type ActionId =
   | 'newGroup' | 'nextGroup' | 'prevGroup' | 'closeGroup' | 'toggleSidebar' | 'newChat'
-  | 'splitRight' | 'splitDown' | 'closePane' | 'toggleBrowser' | 'find' | 'settings' | 'overview'
+  | 'splitRight' | 'splitDown' | 'closePane' | 'tuckPane' | 'untuckPane' | 'toggleBrowser' | 'find' | 'settings' | 'overview'
 
 export const ACTIONS: { id: ActionId; label: string; combo: string }[] = [
   { id: 'newChat', label: 'Novi razgovor u fokusiranom panelu', combo: 'Ctrl+N' },
   { id: 'splitRight', label: 'Podijeli panel desno', combo: 'Ctrl+\\' },
   { id: 'splitDown', label: 'Podijeli panel dolje', combo: 'Ctrl+Shift+\\' },
   { id: 'closePane', label: 'Zatvori fokusirani panel', combo: 'Ctrl+W' },
+  { id: 'tuckPane', label: 'Povuci fokusirani razgovor u rub', combo: 'Ctrl+Shift+H' },
+  { id: 'untuckPane', label: 'Vrati zadnji povučeni razgovor', combo: 'Ctrl+Shift+J' },
   { id: 'toggleBrowser', label: 'Prikaži/sakrij browser panel', combo: 'Ctrl+B' },
   { id: 'find', label: 'Pretraži razgovor', combo: 'Ctrl+F' },
   { id: 'newGroup', label: 'Nova grupa', combo: 'Ctrl+T' },

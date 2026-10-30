@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowRight, RotateCw, FileUp, X, Globe, Loader2, Plus, Search, ZoomIn, ZoomOut, Bug, ChevronUp, ChevronDown,
-  Download, FolderOpen, FolderTree,
+  Download, FolderOpen, FolderTree, Crosshair, FileCode2,
 } from 'lucide-react'
 import FileTree from './FileTree'
+import CodeEditor, { forgetDoc } from './CodeEditor'
 import { useStore } from '../store'
 import { useSettings } from '../settings'
 import { useWindowControlsInset } from '../hooks'
+import { openFileInPanel } from '../actions'
 import type { DownloadInfo } from '../../../shared/ipc'
 
 const mb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} kB`)
@@ -37,6 +39,8 @@ export default function BrowserPanel({ sessionId }: { sessionId: string }) {
   const state = useStore((s) => s.sessions[sessionId]?.browser)
   const downloads = useStore((s) => s.sessions[sessionId]?.downloads)
   const findOpen = useStore((s) => !!s.sessions[sessionId]?.browserFindOpen)
+  const code = useStore((s) => s.sessions[sessionId]?.code)
+  const showCode = useStore((s) => s.showCode)
   const overlay = useStore((s) => s.overlays > 0)
   const setBrowserOpen = useStore((s) => s.setBrowserOpen)
   const setFindOpen = useStore((s) => s.setBrowserFindOpen)
@@ -52,6 +56,7 @@ export default function BrowserPanel({ sessionId }: { sessionId: string }) {
   const [treeOpen, setTreeOpen] = useState(false)
   const cwd = useStore((s) => s.sessions[sessionId]?.meta.cwd)
   const api = window.mymux.browser
+  const activeCode = code?.active ?? null
 
   useEffect(() => { if (!editing) setDraft(state?.url ?? '') }, [state?.url, editing])
 
@@ -83,9 +88,9 @@ export default function BrowserPanel({ sessionId }: { sessionId: string }) {
 
   // The native view covers any DOM drawn over it, so it steps aside while a dialog is open.
   useEffect(() => {
-    void api.setVisible(sessionId, !overlay)
+    void api.setVisible(sessionId, !overlay && !activeCode)
     return () => { void api.setVisible(sessionId, false) }
-  }, [sessionId, overlay, api])
+  }, [sessionId, overlay, activeCode, api])
 
   useEffect(() => api.onFind((r) => { if (r.sessionId === sessionId) setFound({ matches: r.matches, active: r.active }) }), [sessionId, api])
 
@@ -99,6 +104,17 @@ export default function BrowserPanel({ sessionId }: { sessionId: string }) {
     const u = draft.trim()
     setEditing(false)
     if (u) void api.navigate(sessionId, u)
+  }
+
+  const closeFile = (path: string, dirty: boolean) => {
+    if (dirty && !window.confirm(`Zatvoriti ${path.split(/[\\/]/).pop()} bez spremanja izmjena?`)) return
+    forgetDoc(sessionId, path)
+    useStore.getState().closeCode(sessionId, path)
+  }
+
+  const preview = (path: string) => {
+    showCode(sessionId, null)
+    void api.openFile(sessionId, path)
   }
 
   const btn = 'w-7 h-7 shrink-0 rounded-md flex items-center justify-center text-fg-muted hover:text-fg hover:bg-bg-elev2 disabled:opacity-30 disabled:hover:bg-transparent'
@@ -119,7 +135,8 @@ export default function BrowserPanel({ sessionId }: { sessionId: string }) {
         <div className="no-drag flex-1 min-w-0 flex items-center gap-2 bg-bg border border-border rounded-md px-2 h-7 focus-within:border-border-strong">
           <Globe size={13} className="text-fg-faint shrink-0" />
           <input
-            value={draft}
+            value={activeCode ?? draft}
+            readOnly={!!activeCode}
             onFocus={() => setEditing(true)}
             onBlur={() => setEditing(false)}
             onChange={(e) => setDraft(e.target.value)}
@@ -130,6 +147,8 @@ export default function BrowserPanel({ sessionId }: { sessionId: string }) {
           />
         </div>
         <div className="no-drag flex items-center gap-0.5">
+          <button className={`${btn} ${state?.picking ? 'text-accent' : ''}`} disabled={!state?.url || !!activeCode} onClick={() => void api.pick(sessionId, !state?.picking)}
+            title="Pokaži element Claudeu: klik ga dodaje u poruku, držanje otvara brza pitanja, Esc odustaje (Ctrl+Shift+E)"><Crosshair size={15} /></button>
           <button className={btn} onClick={() => void api.openFile(sessionId)} title="Otvori datoteku (PDF, DOCX, PPTX, slika…)"><FileUp size={15} /></button>
           <button className={btn} onClick={() => setBrowserOpen(sessionId, false)} title="Zatvori panel"><X size={15} /></button>
         </div>
@@ -137,11 +156,23 @@ export default function BrowserPanel({ sessionId }: { sessionId: string }) {
 
       <div className="h-8 shrink-0 flex items-center gap-1 pl-2 pr-1 border-b border-border min-w-0">
         <div className="flex-1 min-w-0 flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {code?.files.map((f) => (
+            <div key={f.path} onClick={() => showCode(sessionId, f.path)} title={f.path}
+              onAuxClick={(e) => { if (e.button === 1) closeFile(f.path, f.dirty) }}
+              className={`group/tab shrink-0 max-w-40 h-6 pl-2 pr-1 flex items-center gap-1 rounded-md text-[11.5px] cursor-pointer select-none border
+                ${f.path === activeCode ? 'bg-bg-elev2 text-fg border-border-strong' : 'text-fg-muted border-transparent hover:bg-bg-elev2/60'}`}>
+              <FileCode2 size={11} className="shrink-0 text-accent" />
+              <span className="truncate font-mono">{f.path.split(/[\\/]/).pop()}</span>
+              {f.dirty && <span title="Nespremljene izmjene" className="shrink-0 w-1.5 h-1.5 rounded-full bg-accent" />}
+              <button onClick={(e) => { e.stopPropagation(); closeFile(f.path, f.dirty) }} title="Zatvori datoteku"
+                className="shrink-0 w-4 h-4 rounded flex items-center justify-center text-fg-faint hover:text-danger opacity-0 group-hover/tab:opacity-100"><X size={10} /></button>
+            </div>
+          ))}
           {tabs.map((t) => (
-            <div key={t.id} onClick={() => void api.selectTab(sessionId, t.id)} title={t.url || 'Prazan tab'}
+            <div key={t.id} onClick={() => { showCode(sessionId, null); void api.selectTab(sessionId, t.id) }} title={t.url || 'Prazan tab'}
               onAuxClick={(e) => { if (e.button === 1) void api.closeTab(sessionId, t.id) }}
               className={`group/tab shrink-0 max-w-40 h-6 pl-2 pr-1 flex items-center gap-1 rounded-md text-[11.5px] cursor-pointer select-none border
-                ${t.id === state?.activeTab ? 'bg-bg-elev2 text-fg border-border-strong' : 'text-fg-muted border-transparent hover:bg-bg-elev2/60'}`}>
+                ${!activeCode && t.id === state?.activeTab ? 'bg-bg-elev2 text-fg border-border-strong' : 'text-fg-muted border-transparent hover:bg-bg-elev2/60'}`}>
               {t.loading && <Loader2 size={10} className="shrink-0 animate-spin" />}
               <span className="truncate">{t.title || t.url || 'Novi tab'}</span>
               <button onClick={(e) => { e.stopPropagation(); void api.closeTab(sessionId, t.id) }} title="Zatvori tab (Ctrl+W)"
@@ -179,11 +210,14 @@ export default function BrowserPanel({ sessionId }: { sessionId: string }) {
       <div className="flex-1 min-h-0 flex">
         {treeOpen && cwd && (
           <div className="w-52 shrink-0 border-r border-border bg-bg-elev">
-            <FileTree cwd={cwd} onOpen={(path) => void api.openFile(sessionId, path)} />
+            <FileTree cwd={cwd} onOpen={(path) => openFileInPanel(sessionId, cwd, path)} />
           </div>
         )}
         <div ref={holder} className="flex-1 min-w-0 relative">
-          {!state?.url && (
+          {cwd && code?.files.map((f) => (
+            <CodeEditor key={f.path} sessionId={sessionId} cwd={cwd} path={f.path} visible={f.path === activeCode} onPreview={() => preview(f.path)} />
+          ))}
+          {!state?.url && !activeCode && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-fg-faint text-[13px] gap-2 select-none">
               <Globe size={28} strokeWidth={1.2} />
               <div>Browser panel</div>

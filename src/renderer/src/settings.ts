@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { PermissionMode, EffortLevel, McpServerSpec } from '../../shared/ipc'
 import { DEFAULT_KEYS, type ActionId } from './keys'
+import { DEFAULT_QUICK_ASKS, type QuickAsk } from '../../shared/pie'
 
 /** A reusable prompt offered from the composer menu. */
 export interface PromptTemplate { id: string; name: string; text: string }
@@ -15,6 +16,8 @@ export interface Settings {
   defaultEffort: EffortLevel | ''
   keys: Record<ActionId, string>
   prompts: PromptTemplate[]
+  /** Questions of the pie menu behind a long press on Ask mymux. */
+  quickAsks: QuickAsk[]
   /** MCP servers added in the app; every new session gets them on top of Claude Code's own. */
   mcpServers: Record<string, McpServerSpec>
 }
@@ -23,7 +26,7 @@ const KEY = 'mymux.settings'
 
 const DEFAULTS: Settings = {
   theme: 'dark', zoom: 1, sound: true, defaultModel: '', defaultMode: 'default', defaultEffort: '', keys: DEFAULT_KEYS,
-  prompts: [], mcpServers: {},
+  prompts: [], quickAsks: DEFAULT_QUICK_ASKS, mcpServers: {},
 }
 
 function load(): Settings {
@@ -59,16 +62,21 @@ let initialized = false
 export function initSettings() {
   if (initialized) return
   initialized = true
+  let quickSent: QuickAsk[] | null = null
   const apply = (s: Settings) => {
     document.documentElement.dataset.theme = s.theme
     void window.mymux.window.setZoom(s.zoom)
+    if (s.quickAsks !== quickSent) {
+      quickSent = s.quickAsks
+      void window.mymux.browser.setQuickAsks(s.quickAsks.map(({ id, name }) => ({ id, name })))
+    }
   }
   apply(useSettings.getState())
   useSettings.subscribe((s) => {
     apply(s)
-    const { theme, zoom, sound, defaultModel, defaultMode, defaultEffort, keys, prompts, mcpServers } = s
+    const { theme, zoom, sound, defaultModel, defaultMode, defaultEffort, keys, prompts, quickAsks, mcpServers } = s
     try {
-      localStorage.setItem(KEY, JSON.stringify({ theme, zoom, sound, defaultModel, defaultMode, defaultEffort, keys, prompts, mcpServers }))
+      localStorage.setItem(KEY, JSON.stringify({ theme, zoom, sound, defaultModel, defaultMode, defaultEffort, keys, prompts, quickAsks, mcpServers }))
     } catch { /* storage unavailable */ }
   })
 }

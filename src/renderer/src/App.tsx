@@ -3,13 +3,14 @@ import { Group, Panel, Separator } from 'react-resizable-panels'
 import { useStore, leaves, selectLayout, selectFocusedPane, selectActiveGroup, type Layout } from './store'
 import { useSettings, initSettings } from './settings'
 import { comboOf, actionFor, type ActionId } from './keys'
-import { openSession, restoreWorkspace, askAbout } from './actions'
+import { openSession, restoreWorkspace, askAbout, quoteSelection, sendQuickAsk, elementContext, elementImages } from './actions'
 import Sidebar from './components/Sidebar'
 import Chat from './components/Chat'
 import Welcome from './components/Welcome'
 import WindowControls from './components/WindowControls'
 import SettingsModal from './components/SettingsModal'
 import OverviewModal from './components/OverviewModal'
+import TuckStrip from './components/TuckStrip'
 import { savedSizes, saveSizes } from './sizes'
 
 const SESSION_DRAG = 'application/x-mymux-session'
@@ -52,6 +53,15 @@ function PaneTree({ layout }: { layout: Layout }) {
   )
 }
 
+/** Starts or cancels pointing at an element in the browser panel of a conversation, opening the panel if needed. */
+function togglePick(sessionId: string) {
+  const s = useStore.getState()
+  const session = s.sessions[sessionId]
+  if (!session) return
+  s.setBrowserOpen(sessionId, true)
+  void window.mymux.browser.pick(sessionId, !session.browser?.picking)
+}
+
 /** Runs a keyboard shortcut action against the focused pane. */
 function runAction(action: ActionId) {
   const s = useStore.getState()
@@ -70,6 +80,12 @@ function runAction(action: ActionId) {
     case 'splitRight': return void s.splitPane(pane, 'horizontal')
     case 'splitDown': return void s.splitPane(pane, 'vertical')
     case 'closePane': return s.closePane(pane)
+    case 'tuckPane': return s.tuckPane(pane)
+    case 'untuckPane': {
+      const last = selectActiveGroup(s).tucked?.at(-1)
+      if (last) s.untuckSession(last.sessionId)
+      return
+    }
     case 'toggleBrowser': if (sessionId) s.setBrowserOpen(sessionId, !s.sessions[sessionId]?.browserOpen); return
     case 'find': if (sessionId) s.setFindOpen(sessionId, true); return
     case 'settings': return s.setSettingsOpen(!s.settingsOpen)
@@ -108,14 +124,23 @@ export default function App() {
       }),
       window.mymux.browser.onShortcut((sid, shortcut) => {
         if (shortcut === 'find') st.setBrowserFindOpen(sid, true)
+        else if (shortcut === 'pick') togglePick(sid)
         else if (shortcut === 'newTab') void window.mymux.browser.newTab(sid)
         else if (shortcut === 'closeTab') {
           const tab = useStore.getState().sessions[sid]?.browser?.activeTab
           if (tab) void window.mymux.browser.closeTab(sid, tab)
         }
       }),
-      window.mymux.browser.onAsk((sid, text, title, url) => {
-        if (useStore.getState().sessions[sid]) askAbout(sid, text, { title, url })
+      window.mymux.browser.onAsk((sid, text, title, url, quickId) => {
+        if (!useStore.getState().sessions[sid]) return
+        if (quickId) sendQuickAsk(sid, quoteSelection(text, { title, url }), quickId)
+        else askAbout(sid, text, { title, url })
+      }),
+      window.mymux.browser.onElement((sid, element, quickId) => {
+        const session = useStore.getState().sessions[sid]
+        if (!session) return
+        if (quickId && !session.meta.ended) sendQuickAsk(sid, elementContext(element), quickId, elementImages([element]))
+        else st.addElement(sid, element)
       }),
       window.mymux.onDevCommand((cmd) => {
         const s = useStore.getState()
@@ -146,6 +171,12 @@ export default function App() {
         if (g) { e.preventDefault(); s.switchGroup(g.id) }
         return
       }
+      if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'e') {
+        const s = useStore.getState()
+        const sessionId = leaves(selectLayout(s)).find((l) => l.id === selectFocusedPane(s))?.sessionId
+        if (sessionId) { e.preventDefault(); togglePick(sessionId) }
+        return
+      }
       const action = actionFor(comboOf(e), useSettings.getState().keys)
       if (!action) return
       e.preventDefault()
@@ -162,6 +193,7 @@ export default function App() {
       <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-bg">
         <PaneTree key={group.id} layout={group.layout} />
       </main>
+      <TuckStrip />
       {settingsOpen && <SettingsModal onClose={() => useStore.getState().setSettingsOpen(false)} />}
       {overviewOpen && <OverviewModal onClose={() => useStore.getState().setOverviewOpen(false)} />}
     </div>

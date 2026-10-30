@@ -5,6 +5,68 @@ import {
 } from '../layout'
 import { comboOf, actionFor, DEFAULT_KEYS } from '../keys'
 import { fuzzyScore, rankFiles } from '../../../shared/fuzzy'
+import { pieIndexAt, pieLines, pieWedges } from '../../../shared/pie'
+import { tuckOf, untuck } from '../layout'
+
+describe('pie menu', () => {
+  it('maps directions to wedges and leaves the hole empty', () => {
+    expect(pieIndexAt(0, 0, 2)).toBe(-1)
+    expect(pieIndexAt(-50, 0, 2)).toBe(0)
+    expect(pieIndexAt(50, 0, 2)).toBe(1)
+    expect(pieIndexAt(0, -50, 4)).toBe(0)
+    expect(pieIndexAt(50, 0, 4)).toBe(1)
+    expect(pieIndexAt(0, 50, 4)).toBe(2)
+    expect(pieIndexAt(-50, 0, 4)).toBe(3)
+    expect(pieIndexAt(50, 50, 1)).toBe(0)
+    expect(pieIndexAt(50, 0, 0)).toBe(-1)
+  })
+
+  it('stays inside a wedge up to its edge, for every wedge count', () => {
+    for (let n = 1; n <= 8; n++) {
+      for (let deg = 0; deg < 360; deg += 7) {
+        const i = pieIndexAt(50 * Math.cos(deg * Math.PI / 180), 50 * Math.sin(deg * Math.PI / 180), n)
+        expect(i).toBeGreaterThanOrEqual(0)
+        expect(i).toBeLessThan(n)
+      }
+    }
+  })
+
+  it('wraps labels and marks what does not fit', () => {
+    expect(pieLines('where can i see/test', 12, 3)).toEqual(['where can i', 'see/test'])
+    expect(pieLines('jedan dva tri cetiri', 5, 2)).toEqual(['jedan', 'dva…'])
+    expect(pieLines('nevjerojatnodugarijec', 9, 2)).toEqual(['nevjeroj…'])
+  })
+
+  it('gives every wedge a path and its label', () => {
+    const w = pieWedges(['jedan', 'dva', 'tri'])
+    expect(w).toHaveLength(3)
+    expect(w[1].lines[0].text).toBe('dva')
+    expect(pieWedges(['sam'])[0].path).not.toContain('NaN')
+  })
+})
+
+describe('tucking a pane', () => {
+  const l = (id: string, s: string): Layout => ({ kind: 'leaf', id, sessionId: s })
+
+  it('puts a pane back on its side of the split, next to a sibling subtree', () => {
+    const inner: Layout = { kind: 'split', id: 's2', dir: 'vertical', a: l('p2', 'B'), b: l('p3', 'C') }
+    const root: Layout = { kind: 'split', id: 's1', dir: 'horizontal', a: l('p1', 'A'), b: inner }
+    const place = tuckOf(root, 'p1')!
+    expect(place).toEqual({ splitId: 's1', dir: 'horizontal', side: 'a', sibling: 's2' })
+    const rest = removeLeaf(root, 'p1')!
+    expect(untuck(rest, { ...place, sessionId: 'A', paneId: 'p1' }, 'p2')).toEqual(root)
+  })
+
+  it('finds a place next to the fallback pane when the sibling is gone', () => {
+    const t = { sessionId: 'A', paneId: 'p1', splitId: 's1', dir: 'vertical' as const, side: 'a' as const, sibling: 'gone' }
+    const r = untuck(l('p9', 'Z'), t, 'p9')
+    expect(r).toMatchObject({ kind: 'split', dir: 'vertical', a: { id: 'p9' }, b: { id: 'p1', sessionId: 'A' } })
+  })
+
+  it('has nothing to tuck from a single pane', () => {
+    expect(tuckOf(l('p1', 'A'), 'p1')).toBeNull()
+  })
+})
 
 describe('diff', () => {
   it('marks only the changed lines', () => {

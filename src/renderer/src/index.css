@@ -31,6 +31,9 @@
   --hl-title: #82aaff;
   --hl-type: #ffcb6b;
   --hl-attr: #89ddff;
+  --mymux-pie-bg: var(--color-bg-elev);
+  --mymux-pie-line: var(--color-border-strong);
+  --mymux-pie-fg: var(--color-fg);
 }
 
 :root[data-theme="light"] {
@@ -115,3 +118,5 @@ body {
 .pulse { animation: pulse-dot 1.2s ease-in-out infinite; }
 @keyframes fade-in { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
 .fade-in { animation: fade-in .18s ease-out; }
+@keyframes tuck-in { from { opacity: 0; transform: translateX(-16px) } to { opacity: 1; transform: none } }
+.tuck-in { animation: tuck-in .18s ease-out; }

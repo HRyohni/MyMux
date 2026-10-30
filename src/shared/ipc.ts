@@ -76,6 +76,9 @@ export interface ElicitationRequest {
 export type ElicitationValue = string | number | boolean | string[]
 export type ElicitationAnswer = { action: 'accept'; content?: Record<string, ElicitationValue> } | { action: 'decline' | 'cancel' }
 
+/** A text file opened in the code editor; `mtime` is what a later save is checked against. */
+export interface TextFile { path: string; content: string; mtime: number }
+
 export interface GitFile { path: string; status: string; added: number; removed: number }
 export interface GitStatus { branch: string; upstream?: string; ahead: number; behind: number; files: GitFile[] }
 
@@ -131,6 +134,24 @@ export interface BrowserState {
   tabs: BrowserTab[]
   activeTab: string
   zoom: number
+  /** The active tab is waiting for the user to point at an element. */
+  picking: boolean
+}
+
+/** What a page reports about the element the user pointed at. */
+export interface PickedElement { tag: string; selector: string; text: string; html: string; rect: Rect }
+
+/** An element referenced in the composer. */
+export interface ElementRef {
+  id: string
+  url: string
+  title: string
+  tag: string
+  selector: string
+  text: string
+  html: string
+  /** PNG of the element as base64, when it could be captured. */
+  image?: string
 }
 
 export interface DownloadInfo {
@@ -145,7 +166,7 @@ export interface DownloadInfo {
 
 export interface FindResult { sessionId: string; matches: number; active: number }
 
-export type BrowserShortcut = 'find' | 'newTab' | 'closeTab'
+export type BrowserShortcut = 'find' | 'newTab' | 'closeTab' | 'pick'
 
 export interface BrowserApi {
   setBounds(sessionId: string, rect: Rect): Promise<void>
@@ -166,6 +187,10 @@ export interface BrowserApi {
   devTools(sessionId: string): Promise<void>
   /** PNG of what the active tab shows, as base64. */
   capture(sessionId: string): Promise<string>
+  /** Starts or cancels pointing at an element on the active tab. */
+  pick(sessionId: string, on: boolean): Promise<void>
+  /** Names of the quick questions, offered by the pie menu of the pages. */
+  setQuickAsks(items: { id: string; name: string }[]): Promise<void>
   openPath(path: string): Promise<void>
   showInFolder(path: string): Promise<void>
   onState(cb: (state: BrowserState) => void): () => void
@@ -174,8 +199,10 @@ export interface BrowserApi {
   onFind(cb: (r: FindResult) => void): () => void
   /** Keyboard shortcuts pressed while the embedded page has focus. */
   onShortcut(cb: (sessionId: string, shortcut: BrowserShortcut) => void): () => void
-  /** "Ask mymux" from the selection bubble of a page: the selected text and where it came from. */
-  onAsk(cb: (sessionId: string, text: string, title: string, url: string) => void): () => void
+  /** "Ask mymux" from the selection bubble of a page: the selected text, where it came from and the quick question, if any. */
+  onAsk(cb: (sessionId: string, text: string, title: string, url: string, quickId?: string) => void): () => void
+  /** The user pointed at an element; a quick question from the pie goes along if one was chosen. */
+  onElement(cb: (sessionId: string, element: ElementRef, quickId?: string) => void): () => void
 }
 
 export interface WindowApi {
@@ -272,6 +299,12 @@ export interface MymuxApi {
   fork(sessionId: string, opts?: ForkOptions): Promise<{ sdkSessionId: string | null }>
   rewindFiles(sessionId: string, userMessageUuid: string, dryRun: boolean): Promise<RewindResult>
   searchFiles(cwd: string, query: string): Promise<string[]>
+  /** Rejects for binary or very large files, which the browser panel shows instead. */
+  readFile(cwd: string, path: string): Promise<TextFile>
+  /** Resolves to the new mtime. Rejects with CONFLICT if the file changed since `expectedMtime`; null overwrites. */
+  writeFile(path: string, content: string, expectedMtime: number | null): Promise<number>
+  /** Null when the file is gone. */
+  fileMtime(path: string): Promise<number | null>
   listDir(cwd: string, rel: string): Promise<DirEntry[]>
   stopTask(sessionId: string, taskId: string): Promise<void>
   setThinking(sessionId: string, enabled: boolean): Promise<void>

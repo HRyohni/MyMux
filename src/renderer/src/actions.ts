@@ -4,7 +4,7 @@ import { parseWorkspace, restoreGroups, serializeWorkspace, type SavedWorkspace 
 import { unloadedAgents } from './reducer'
 import { useSettings } from './settings'
 import { googleUrl } from '../../shared/search'
-import type { CreateSessionOptions, SessionMeta } from '../../shared/ipc'
+import type { CreateSessionOptions, ElementRef, ImageAttachment, SessionMeta } from '../../shared/ipc'
 
 export const errText = (e: unknown) =>
   String(e instanceof Error ? e.message : e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
@@ -190,10 +190,57 @@ export function quoteSelection(text: string, source?: { title: string; url: stri
   return `${quoted}${from}\n\n`
 }
 
+// Shown by the browser panel as they are; everything else opens in the code editor.
+const BROWSER_ONLY = /\.(pdf|docx?|pptx?|ppsx|xlsx?|xlsm|ods|png|jpe?g|gif|webp|bmp|ico|mp4|webm|mp3|wav|zip|exe|dll)$/i
+
+/** Opens a file for the user: the code editor for text, the browser panel for documents and anything not editable. */
+export function openFileInPanel(sessionId: string, cwd: string, path: string) {
+  const st = useStore.getState()
+  st.setBrowserOpen(sessionId, true)
+  const inBrowser = () => {
+    st.showCode(sessionId, null)
+    void window.mymux.browser.openFile(sessionId, path)
+  }
+  if (BROWSER_ONLY.test(path)) return inBrowser()
+  window.mymux.readFile(cwd, path).then((f) => st.openCode(sessionId, f.path)).catch(inBrowser)
+}
+
 /** "Ask mymux": quote the selection into the conversation's composer. */
 export function askAbout(sessionId: string, text: string, source?: { title: string; url: string }) {
   useStore.getState().appendDraft(sessionId, quoteSelection(text, source))
 }
+
+/** Sends `context` with a question of the pie menu right away. Ended sessions cannot send, so it waits in the composer. */
+export function sendQuickAsk(sessionId: string, context: string, quickId: string, images: ImageAttachment[] = []) {
+  const ask = useSettings.getState().quickAsks.find((q) => q.id === quickId)
+  const st = useStore.getState()
+  const session = st.sessions[sessionId]
+  if (!ask || !session) return
+  if (session.meta.ended) return st.appendDraft(sessionId, `${context}${ask.text}`)
+  window.mymux.send(sessionId, `${context}${ask.text}`, images)
+    .catch((e) => st.addInfo(sessionId, `Poruka nije poslana: ${errText(e)}`, 'error'))
+}
+
+/** How an element referenced in the browser panel reads in a message. */
+export function elementContext(el: ElementRef): string {
+  const page = el.url ? (el.title && !el.url.includes(el.title) ? `${el.title} (${el.url})` : el.url) : 'browser panel'
+  const fence = el.html.includes('```') ? '````' : '```'
+  return [
+    `Mislim na ovaj element u browser panelu, stranica ${page}:`,
+    `- selektor: \`${el.selector}\``,
+    ...(el.text ? [`- tekst: "${el.text}"`] : []),
+    '',
+    `${fence}html`,
+    el.html,
+    fence,
+    '',
+    '',
+  ].join('\n')
+}
+
+/** The cropped pictures of referenced elements, as message images. */
+export const elementImages = (els: ElementRef[]): ImageAttachment[] =>
+  els.flatMap((el) => (el.image ? [{ mediaType: 'image/png', data: el.image }] : []))
 
 /** "Google it": search for the selection in a new tab of the conversation's browser panel. */
 export function googleIt(sessionId: string, text: string) {

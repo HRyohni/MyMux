@@ -6,7 +6,7 @@ import { homedir } from 'node:os'
 import { createServer } from 'node:net'
 import { AgentManager } from './agent'
 import { CdpConnection, enableRemoteDebugging, sessionOfWebContents } from './browser'
-import { searchFiles, saveTempFile } from './files'
+import { searchFiles, saveTempFile, readTextFile, writeTextFile, fileMtime } from './files'
 import { initAutoUpdate } from './updater'
 import { gitStatus, gitDiff, gitCommit, gitStash, gitWorktree } from './git'
 import { listDir, searchTranscripts, getSubagentHistory, saveExport, editPermissionRule } from './extras'
@@ -14,7 +14,7 @@ import { VIEWABLE_EXTENSIONS, sourceOfViewableUrl } from './documents'
 import { googleUrl } from '../shared/search'
 import type {
   PermissionAnswer, PermissionMode, Rect, ImageAttachment, CreateSessionOptions, EffortLevel, ForkOptions, DownloadInfo,
-  ElicitationAnswer, McpServerSpec,
+  ElicitationAnswer, McpServerSpec, PickedElement,
 } from '../shared/ipc'
 
 app.setName('mymux')
@@ -244,6 +244,9 @@ ipcMain.handle('stored:tag', (_e, sdkId: string, tag: string | null, cwd?: strin
 ipcMain.handle('stored:delete', (_e, sdkId: string, cwd?: string) => agents.deleteStored(sdkId, cwd))
 ipcMain.handle('settings:info', (_e, cwd: string) => agents.getSettingsInfo(cwd))
 ipcMain.handle('files:search', (_e, cwd: string, query: string) => searchFiles(cwd, query))
+ipcMain.handle('files:read', (_e, cwd: string, path: string) => readTextFile(cwd, path))
+ipcMain.handle('files:write', (_e, path: string, content: string, expected: number | null) => writeTextFile(path, content, expected))
+ipcMain.handle('files:mtime', (_e, path: string) => fileMtime(path))
 ipcMain.handle('files:saveTemp', (_e, name: string, base64: string) => saveTempFile(name, base64))
 ipcMain.handle('session:interrupt', (_e, id: string) => agents.interrupt(id))
 ipcMain.handle('session:setPermissionMode', (_e, id: string, mode: PermissionMode) => agents.setPermissionMode(id, mode))
@@ -269,15 +272,36 @@ ipcMain.handle('browser:stopFind', (_e, id: string) => agents.browserIfOpen(id)?
 ipcMain.handle('browser:setZoom', (_e, id: string, factor: number) => agents.browserOf(id).setZoom(factor))
 ipcMain.handle('browser:devTools', (_e, id: string) => agents.browserOf(id).devTools())
 // The selection bubble of a browser-panel page (src/preload/page.ts).
-ipcMain.on('page:selection', (e, action: unknown, text: unknown) => {
+let quickAsks: { id: string; name: string }[] = []
+ipcMain.handle('browser:setQuickAsks', (_e, items: typeof quickAsks) => { quickAsks = items })
+ipcMain.handle('page:quickAsks', () => quickAsks)
+ipcMain.on('page:selection', (e, action: unknown, text: unknown, quickId: unknown) => {
   const sessionId = sessionOfWebContents(e.sender.id)
   if (!sessionId || typeof text !== 'string' || !text.trim()) return
   const browser = agents.browserIfOpen(sessionId)
   if (action === 'google') browser?.newTab(googleUrl(text))
   else if (action === 'ask') {
     const url = e.sender.getURL()
-    win?.webContents.send('browser:ask', sessionId, text.slice(0, 20000), e.sender.getTitle(), sourceOfViewableUrl(url) ?? url)
+    win?.webContents.send('browser:ask', sessionId, text.slice(0, 20000), e.sender.getTitle(), sourceOfViewableUrl(url) ?? url,
+      typeof quickId === 'string' ? quickId : undefined)
   }
+})
+ipcMain.handle('browser:pick', (_e, id: string, on: boolean) => agents.browserIfOpen(id)?.setPicking(on))
+ipcMain.on('page:pickEnd', (e) => {
+  const sessionId = sessionOfWebContents(e.sender.id)
+  if (sessionId) agents.browserIfOpen(sessionId)?.pickEnded(e.sender)
+})
+ipcMain.on('page:element', async (e, el: PickedElement, quickId: unknown) => {
+  const sessionId = sessionOfWebContents(e.sender.id)
+  const browser = sessionId ? agents.browserIfOpen(sessionId) : undefined
+  if (!sessionId || !browser || typeof el?.selector !== 'string') return
+  const image = await browser.captureElement(e.sender, el.rect).catch(() => undefined)
+  const url = e.sender.getURL()
+  win?.webContents.send('browser:element', sessionId, {
+    id: randomUUID(), url: sourceOfViewableUrl(url) ?? url, title: e.sender.getTitle(),
+    tag: String(el.tag).slice(0, 300), selector: el.selector.slice(0, 1000), text: String(el.text).slice(0, 500), html: String(el.html).slice(0, 2000), image,
+  }, typeof quickId === 'string' ? quickId : undefined)
+  win?.webContents.focus()
 })
 ipcMain.handle('browser:openPath', async (_e, path: string) => { await shell.openPath(path) })
 ipcMain.handle('browser:showInFolder', (_e, path: string) => shell.showItemInFolder(path))

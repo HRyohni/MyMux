@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { RefreshCw, Loader2, X } from 'lucide-react'
 import { useStore, PERMISSION_MODES, FALLBACK_MODELS, EFFORT_LABELS, selectActiveGroup, leaves } from '../store'
 import { useSettings, type PromptTemplate } from '../settings'
+import { DEFAULT_QUICK_ASKS, MAX_QUICK_ASKS, type QuickAsk } from '../../../shared/pie'
 import { ACTIONS, comboOf, type ActionId } from '../keys'
 import { errText, readLayouts, saveLayout, deleteLayout, loadLayout } from '../actions'
 import type { McpServerInfo, SettingsSourceInfo, PermissionMode, EffortLevel, McpServerSpec, UsageInfo } from '../../../shared/ipc'
@@ -11,6 +12,7 @@ const TABS = [
   { id: 'general', label: 'Općenito' },
   { id: 'keys', label: 'Prečaci' },
   { id: 'prompts', label: 'Predlošci' },
+  { id: 'quick', label: 'Brza pitanja' },
   { id: 'layouts', label: 'Rasporedi' },
   { id: 'mcp', label: 'MCP serveri' },
   { id: 'rules', label: 'Dopuštenja i hookovi' },
@@ -394,6 +396,48 @@ function Prompts() {
   )
 }
 
+function QuickAsks() {
+  const asks = useSettings((st) => st.quickAsks)
+  const [name, setName] = useState('')
+  const [text, setText] = useState('')
+  const save = (next: QuickAsk[]) => useSettings.getState().set({ quickAsks: next })
+  const add = () => {
+    if (!name.trim() || !text.trim()) return
+    save([...asks, { id: `${Date.now()}`, name: name.trim(), text: text.trim() }])
+    setName('')
+    setText('')
+  }
+  return (
+    <div>
+      <div className="pb-2 text-[11.5px] text-fg-faint">
+        Označi tekst ili element pa drži <span className="text-fg-muted">Ask mymux</span>: otvara se okrugli izbornik, a odabrano pitanje odmah se šalje Claudeu zajedno s oznakom. Naziv je ono što piše na izborniku, do {MAX_QUICK_ASKS} pitanja.
+      </div>
+      <div className="space-y-2">
+        {asks.map((q) => (
+          <div key={q.id} className="rounded-lg border border-border bg-bg p-2.5">
+            <div className="flex items-center gap-2">
+              <input value={q.name} onChange={(e) => save(asks.map((x) => (x.id === q.id ? { ...x, name: e.target.value } : x)))}
+                className="flex-1 min-w-0 bg-transparent outline-none text-[13px] font-medium" />
+              <button onClick={() => save(asks.filter((x) => x.id !== q.id))} title="Obriši pitanje" className="text-fg-faint hover:text-danger"><X size={13} /></button>
+            </div>
+            <textarea value={q.text} rows={Math.min(4, q.text.split('\n').length)}
+              onChange={(e) => save(asks.map((x) => (x.id === q.id ? { ...x, text: e.target.value } : x)))}
+              className="mt-1.5 w-full resize-y bg-transparent outline-none text-[12.5px] text-fg-muted leading-relaxed" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 pt-3 border-t border-border space-y-2">
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Naziv, npr. sažmi" className={`${select} w-full`} />
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Pitanje koje se šalje" className={`${select} w-full resize-y`} />
+        <div className="flex gap-2">
+          <button onClick={add} disabled={!name.trim() || !text.trim() || asks.length >= MAX_QUICK_ASKS} className={button}>Dodaj pitanje</button>
+          <button onClick={() => save(DEFAULT_QUICK_ASKS)} className={button}>Vrati zadana</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Layouts({ onClose }: { onClose(): void }) {
   const [layouts, setLayouts] = useState(readLayouts)
   const [name, setName] = useState('')
@@ -497,6 +541,7 @@ export default function SettingsModal({ onClose }: { onClose(): void }) {
           {tab === 'keys' && <Keys />}
           {tab === 'mcp' && <Mcp sessionId={live} />}
           {tab === 'prompts' && <Prompts />}
+          {tab === 'quick' && <QuickAsks />}
           {tab === 'layouts' && <Layouts onClose={onClose} />}
           {tab === 'rules' && <Rules cwd={focused?.meta.cwd ?? null} />}
           {tab === 'account' && <Account sessionId={live} />}

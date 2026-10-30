@@ -67,8 +67,14 @@ Windows is the tested platform. macOS (dmg) and Linux (AppImage) builds are conf
 ### Browser panel
 - Each session has its own tabs. Claude uses them through built-in `browser_*` tools without asking for approval, and you see everything live. You can also click around or enter a URL yourself.
 - Opens **PDF, DOCX, XLSX/CSV, PPTX, Markdown** and text files. The icon next to a path in a Read, Edit or Write card opens that file in the panel.
+- **Code editor**: clicking a file (file tree, tool cards, changed files) opens it as a tab in a CodeMirror editor with syntax highlighting, folding, search and `Ctrl+S`. Changes on disk, including Claude's, appear on their own, and if you have unsaved edits it asks what to do.
 - File tree of the working folder, zoom, find in page, DevTools and a download list.
 - **Select text** on a page or in the chat and a bubble appears: *Ask mymux* quotes the selection into the input with its source, *Google it* searches for it in a new tab.
+- **Quick questions**: hold *Ask mymux* and a round menu opens. The question you pick is sent to Claude right away with the selection. Edit the list in *Settings → Quick questions*.
+- **Point at an element** (crosshair in the browser panel or `Ctrl+Shift+E`): click any part of a page and it joins your message with its selector, text, HTML and a cropped picture, so Claude knows exactly what you mean. Holding on an element opens the quick questions, Esc cancels. Content inside an iframe is picked as the whole iframe.
+
+### Tuck to the edge
+In a split, the arrow in the pane header (or `Ctrl+Shift+H`) pulls a conversation into a narrow strip at the right edge. It keeps working, and a dot shows whether it is running or waiting for you. Click the strip (or `Ctrl+Shift+J` for the latest) to put it back where it was.
 
 ### Git, sessions and export
 - **Git** (branch icon): working tree changes with a diff against HEAD, commit, stash, and *New worktree + conversation* so two conversations never touch the same files.
@@ -100,13 +106,15 @@ A notification arrives when Claude finishes, waits for approval, or has a questi
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | next / previous group |
 | `Ctrl+Shift+W` | close group |
 | `Ctrl+B` | show / hide browser panel |
+| `Ctrl+Shift+E` | point at an element in the browser panel |
+| `Ctrl+Shift+H` / `Ctrl+Shift+J` | tuck conversation to the edge / bring back the latest |
 | `Ctrl+Shift+B` | show / hide sidebar |
 | `Ctrl+F` | search the conversation (in the browser: the page) |
 | `Ctrl+Shift+O` | overview of all conversations |
 | `Ctrl+,` | settings |
 | `Enter` / `Shift+Enter` | send / new line |
 
-Every shortcut can be changed in settings. While the browser panel has focus, `Ctrl+T`/`Ctrl+W` (tab), `Ctrl+F`, `Ctrl +/-/0` (zoom) and `F12` (DevTools) apply.
+Every shortcut can be changed in settings, except `Ctrl+Shift+E`. While the browser panel has focus, `Ctrl+T`/`Ctrl+W` (tab), `Ctrl+F`, `Ctrl +/-/0` (zoom) and `F12` (DevTools) apply.
 
 ## Development
 

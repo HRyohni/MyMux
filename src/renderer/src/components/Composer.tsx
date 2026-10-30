@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowUp, Square, RotateCcw, Paperclip, X, FileText, Clock, Zap, File as FileIcon, Slash, MoreHorizontal, Camera, Brain, Gauge,
-  FolderPlus, BookText, Sparkles, Check,
+  FolderPlus, BookText, Sparkles, Check, Crosshair,
 } from 'lucide-react'
 import { useSettings } from '../settings'
 import { useStore, PERMISSION_MODES, FALLBACK_MODELS, EFFORT_LABELS } from '../store'
-import { openSession, closeSession, errText } from '../actions'
+import { openSession, closeSession, errText, elementContext, elementImages } from '../actions'
 import type { ImageAttachment, SlashCommandInfo, PermissionMode, EffortLevel } from '../../../shared/ipc'
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
@@ -17,6 +17,9 @@ const ALL_EFFORTS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max']
 type Attachment =
   | ({ kind: 'image'; id: string; url: string } & ImageAttachment)
   | { kind: 'file'; id: string; name: string; path: string }
+
+/** What was typed but not sent, kept while a conversation is out of view (tucked to the edge). */
+const unsent = new Map<string, { text: string; attachments: Attachment[] }>()
 
 const newId = () => `${Date.now()}-${Math.random()}`
 
@@ -95,11 +98,12 @@ function ContextMeter({ sessionId }: { sessionId: string }) {
 export default function Composer({ sessionId, paneId }: { sessionId: string; paneId: string }) {
   const meta = useStore((s) => s.sessions[sessionId]?.meta)
   const draft = useStore((s) => s.sessions[sessionId]?.draft)
+  const elements = useStore((s) => s.sessions[sessionId]?.elements) ?? []
   const models = useStore((s) => s.models)
   const addInfo = useStore((s) => s.addInfo)
-  const [text, setText] = useState('')
+  const [text, setText] = useState(() => unsent.get(sessionId)?.text ?? '')
   const [caret, setCaret] = useState(0)
-  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [attachments, setAttachments] = useState<Attachment[]>(() => unsent.get(sessionId)?.attachments ?? [])
   const [dragOver, setDragOver] = useState(false)
   const [busy, setBusy] = useState(false)
   const [commands, setCommands] = useState<SlashCommandInfo[]>([])
@@ -114,7 +118,8 @@ export default function Composer({ sessionId, paneId }: { sessionId: string; pan
   const cwd = meta?.cwd ?? ''
   const live = !!meta && !meta.ended
 
-  useEffect(() => { ref.current?.focus() }, [sessionId])
+  useEffect(() => { ref.current?.focus() }, [sessionId, elements.length])
+  useEffect(() => { unsent.set(sessionId, { text, attachments }) }, [sessionId, text, attachments])
 
   useEffect(() => {
     if (!draft) return
@@ -188,12 +193,13 @@ ${draft.text}` : draft.text
 
   const send = async () => {
     const t = text.trim()
-    if (!t && attachments.length === 0) return
-    const imgs = attachments.flatMap((a) => (a.kind === 'image' ? [{ mediaType: a.mediaType, data: a.data }] : []))
+    if (!t && attachments.length === 0 && elements.length === 0) return
+    const imgs = [...elementImages(elements), ...attachments.flatMap((a) => (a.kind === 'image' ? [{ mediaType: a.mediaType, data: a.data }] : []))]
     const paths = attachments.flatMap((a) => (a.kind === 'file' ? [a.path] : []))
-    const body = paths.length ? `${t}${t ? '\n\n' : ''}Priložene datoteke: ${paths.map(mention).join(' ')}` : t
+    const body = elements.map(elementContext).join('') + (paths.length ? `${t}${t ? '\n\n' : ''}Priložene datoteke: ${paths.map(mention).join(' ')}` : t)
     setText('')
     setAttachments([])
+    useStore.getState().clearElements(sessionId)
     try {
       await window.mymux.send(sessionId, body, imgs)
     } catch (e) {
@@ -273,7 +279,7 @@ ${draft.text}` : draft.text
     )
   }
 
-  const canSend = text.trim().length > 0 || attachments.length > 0
+  const canSend = text.trim().length > 0 || attachments.length > 0 || elements.length > 0
   const queued = meta.queued ?? []
 
   const insert = (value: string) => {
@@ -385,8 +391,25 @@ ${draft.text}` : draft.text
           className={`rounded-2xl border bg-bg-elev transition px-3 pt-2 pb-1.5
             ${dragOver ? 'border-accent' : 'border-border focus-within:border-border-strong'}`}
         >
-          {attachments.length > 0 && (
+          {(attachments.length > 0 || elements.length > 0) && (
             <div className="flex flex-wrap gap-2 pb-2">
+              {elements.map((el) => (
+                <div key={el.id} className="relative" title={`${el.selector}\n${el.url}`}>
+                  <div className="h-16 max-w-64 pr-3 flex items-center gap-2 rounded-lg border border-accent/50 bg-bg text-[12px] overflow-hidden">
+                    {el.image
+                      ? <img src={`data:image/png;base64,${el.image}`} alt="Element" className="h-full w-16 shrink-0 object-contain bg-white" />
+                      : <Crosshair size={18} className="shrink-0 ml-3 text-accent" />}
+                    <span className="min-w-0">
+                      <span className="block truncate font-mono">{el.tag}</span>
+                      {el.text && <span className="block truncate text-fg-faint">{el.text}</span>}
+                    </span>
+                  </div>
+                  <button onClick={() => useStore.getState().removeElement(sessionId, el.id)} title="Ukloni element"
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-bg-elev2 border border-border-strong text-fg-muted hover:text-danger flex items-center justify-center">
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
               {attachments.map((a) => (
                 <div key={a.id} className="relative">
                   {a.kind === 'image'

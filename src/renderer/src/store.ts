@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 import type {
   SDKMessage, SessionMeta, PermissionRequest, PermissionMode, BrowserState, HistoryMessage, DownloadInfo, ModelOption,
-  EffortLevel, ElicitationRequest,
+  EffortLevel, ElicitationRequest, ElementRef,
 } from '../../shared/ipc'
 import { reduce, nid, withSubagent, type ChatItem } from './reducer'
 import {
-  leaves, mapLayout, removeLeaf, paneOfSession, groupOfSession, serializeWorkspace, type Group, type Layout,
+  leaves, mapLayout, removeLeaf, paneOfSession, groupOfSession, serializeWorkspace, tuckOf, untuck, type Group, type Layout,
 } from './layout'
 
 export type { ChatItem, Block, ToolResult, ToolBlock } from './reducer'
@@ -21,6 +21,10 @@ export interface SessionState {
   browser: BrowserState | null
   browserOpen: boolean
   downloads: DownloadInfo[]
+  /** Files open in the code editor of the browser panel; `active` hides the web page while set. */
+  code: { files: { path: string; dirty: boolean }[]; active: string | null }
+  /** Page elements referenced in the composer, sent with the next message. */
+  elements: ElementRef[]
   /** Text to put into the composer (edit of an earlier message); the nonce makes repeats distinct. */
   draft?: { text: string; nonce: number; append?: boolean }
   findOpen: boolean
@@ -74,6 +78,14 @@ interface Store {
   setDraft(sessionId: string, text: string): void
   /** Adds text to the end of whatever the composer already holds ("Ask mymux" on a selection). */
   appendDraft(sessionId: string, text: string): void
+  openCode(sessionId: string, path: string): void
+  /** Shows a file's editor, or the web page with null. */
+  showCode(sessionId: string, path: string | null): void
+  closeCode(sessionId: string, path: string): void
+  setCodeDirty(sessionId: string, path: string, dirty: boolean): void
+  addElement(sessionId: string, element: ElementRef): void
+  removeElement(sessionId: string, id: string): void
+  clearElements(sessionId: string): void
   setFindOpen(sessionId: string, open: boolean): void
   setBrowserFindOpen(sessionId: string, open: boolean): void
   // panes
@@ -84,6 +96,10 @@ interface Store {
   /** Shows a session in the given pane, taking it out of whichever pane had it (drag and drop). */
   moveSession(sessionId: string, paneId: string): void
   showSession(sessionId: string): void
+  /** Pulls a conversation out of its split to the edge of the window; it keeps running. */
+  tuckPane(paneId: string): void
+  /** Puts a tucked conversation back where it was. */
+  untuckSession(sessionId: string): void
 }
 
 export const selectActiveGroup = (s: { groups: Group[]; activeGroup: string }): Group =>
@@ -126,8 +142,11 @@ function updateSession(s: Store, id: string, fn: (cur: SessionState) => Partial<
 }
 
 const freshSession = (meta: SessionMeta, browserOpen = false): SessionState => ({
-  meta, items: [], pending: [], elicitations: [], browser: null, browserOpen, downloads: [], findOpen: false, browserFindOpen: false,
+  meta, items: [], pending: [], elicitations: [], browser: null, browserOpen, downloads: [], code: { files: [], active: null }, elements: [], findOpen: false, browserFindOpen: false,
 })
+
+const withoutTucked = (g: Group, sessionId: string): Group =>
+  (g.tucked?.some((t) => t.sessionId === sessionId) ? { ...g, tucked: g.tucked.filter((t) => t.sessionId !== sessionId) } : g)
 
 export const useStore = create<Store>((set, get) => ({
   sessions: {},
@@ -202,7 +221,7 @@ export const useStore = create<Store>((set, get) => ({
     return {
       sessions: rest,
       order: s.order.filter((x) => x !== id),
-      groups: s.groups.map((g) => ({ ...g, layout: mapLayout(g.layout, (l) => (l.sessionId === id ? { ...l, sessionId: null } : l)) })),
+      groups: s.groups.map((g) => ({ ...withoutTucked(g, id), layout: mapLayout(g.layout, (l) => (l.sessionId === id ? { ...l, sessionId: null } : l)) })),
     }
   }),
 
@@ -273,6 +292,23 @@ export const useStore = create<Store>((set, get) => ({
   setDraft: (sessionId, text) => set((s) => updateSession(s, sessionId, () => ({ draft: { text, nonce: Date.now() } }))),
   appendDraft: (sessionId, text) => set((s) => updateSession(s, sessionId, () => ({ draft: { text, nonce: Date.now(), append: true } }))),
 
+  openCode: (sessionId, path) => set((s) => updateSession(s, sessionId, ({ code }) => ({
+    browserOpen: true,
+    code: { files: code.files.some((f) => f.path === path) ? code.files : [...code.files, { path, dirty: false }], active: path },
+  }))),
+  showCode: (sessionId, path) => set((s) => updateSession(s, sessionId, ({ code }) => ({ code: { ...code, active: path } }))),
+  closeCode: (sessionId, path) => set((s) => updateSession(s, sessionId, ({ code }) => {
+    const files = code.files.filter((f) => f.path !== path)
+    return { code: { files, active: code.active === path ? files[files.length - 1]?.path ?? null : code.active } }
+  })),
+  setCodeDirty: (sessionId, path, dirty) => set((s) => updateSession(s, sessionId, ({ code }) => (
+    code.files.find((f) => f.path === path)?.dirty === dirty ? {} : { code: { ...code, files: code.files.map((f) => (f.path === path ? { ...f, dirty } : f)) } }
+  ))),
+
+  addElement: (sessionId, element) => set((s) => updateSession(s, sessionId, (cur) => ({ elements: [...cur.elements, element] }))),
+  removeElement: (sessionId, id) => set((s) => updateSession(s, sessionId, (cur) => ({ elements: cur.elements.filter((e) => e.id !== id) }))),
+  clearElements: (sessionId) => set((s) => updateSession(s, sessionId, () => ({ elements: [] }))),
+
   setFindOpen: (sessionId, open) => set((s) => updateSession(s, sessionId, () => ({ findOpen: open }))),
 
   setBrowserFindOpen: (sessionId, open) => set((s) => updateSession(s, sessionId, () => ({ browserFindOpen: open }))),
@@ -318,7 +354,7 @@ export const useStore = create<Store>((set, get) => ({
     return {
       activeGroup: owner.id,
       groups: s.groups.map((g) => ({
-        ...g,
+        ...withoutTucked(g, sessionId),
         layout: mapLayout(g.layout, (l) => (l.id === paneId ? { ...l, sessionId } : l.sessionId === sessionId ? { ...l, sessionId: null } : l)),
         focusedPane: g.id === owner.id ? paneId : g.focusedPane,
       })),
@@ -327,6 +363,7 @@ export const useStore = create<Store>((set, get) => ({
 
   showSession: (sessionId) => {
     const s = get()
+    if (s.groups.some((g) => g.tucked?.some((t) => t.sessionId === sessionId))) return s.untuckSession(sessionId)
     const other = groupOfSession(s.groups, sessionId)
     if (other) {
       const pane = paneOfSession(other.layout, sessionId)!
@@ -335,6 +372,27 @@ export const useStore = create<Store>((set, get) => ({
       s.setPaneSession(selectFocusedPane(s), sessionId)
     }
   },
+
+  tuckPane: (paneId) => set((s) => updateGroup(s, (g) => {
+    const sessionId = leaves(g.layout).find((l) => l.id === paneId)?.sessionId
+    const place = tuckOf(g.layout, paneId)
+    const layout = removeLeaf(g.layout, paneId)
+    if (!sessionId || !place || !layout) return {}
+    const focused = leaves(layout).some((l) => l.id === g.focusedPane) ? g.focusedPane : leaves(layout)[0].id
+    return { layout, focusedPane: focused, tucked: [...(g.tucked ?? []), { ...place, sessionId, paneId }] }
+  })),
+
+  untuckSession: (sessionId) => set((s) => {
+    const owner = s.groups.find((g) => g.tucked?.some((t) => t.sessionId === sessionId))
+    const entry = owner?.tucked?.find((t) => t.sessionId === sessionId)
+    if (!owner || !entry) return {}
+    return {
+      activeGroup: owner.id,
+      ...updateGroup(s, (g) => ({
+        layout: untuck(g.layout, entry, g.focusedPane), focusedPane: entry.paneId, tucked: g.tucked?.filter((t) => t !== entry),
+      }), owner.id),
+    }
+  }),
 }))
 
 // ---------------------------------------------------------------------------

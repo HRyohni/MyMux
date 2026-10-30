@@ -9,7 +9,18 @@ export type Layout =
 export type Leaf = Extract<Layout, { kind: 'leaf' }>
 
 /** A group is an independent pane layout (like a tmux window / wmux workspace). */
-export interface Group { id: string; name: string; layout: Layout; focusedPane: string }
+export interface Group { id: string; name: string; layout: Layout; focusedPane: string; tucked?: TuckedPane[] }
+
+/** A conversation pulled out of its split to the edge of the window, and where it goes back to. */
+export interface TuckedPane {
+  sessionId: string
+  paneId: string
+  splitId: string
+  dir: 'horizontal' | 'vertical'
+  side: 'a' | 'b'
+  /** The node that stayed in the split. */
+  sibling: string
+}
 
 export function leaves(l: Layout): Leaf[] {
   return l.kind === 'leaf' ? [l] : [...leaves(l.a), ...leaves(l.b)]
@@ -24,6 +35,35 @@ export function removeLeaf(l: Layout, id: string): Layout | null {
   if (a && b) return { ...l, a, b }
   return a ?? b
 }
+/** Where a pane sits in its parent split; null for a pane that fills the whole layout. */
+export function tuckOf(l: Layout, paneId: string): Omit<TuckedPane, 'sessionId' | 'paneId'> | null {
+  if (l.kind === 'leaf') return null
+  for (const side of ['a', 'b'] as const) {
+    const other = side === 'a' ? l.b : l.a
+    if (l[side].kind === 'leaf' && l[side].id === paneId) return { splitId: l.id, dir: l.dir, side, sibling: other.id }
+  }
+  return tuckOf(l.a, paneId) ?? tuckOf(l.b, paneId)
+}
+
+function hasNode(l: Layout, id: string): boolean {
+  return l.id === id || (l.kind === 'split' && (hasNode(l.a, id) || hasNode(l.b, id)))
+}
+
+function wrapNode(l: Layout, id: string, fn: (node: Layout) => Layout): Layout {
+  if (l.id === id) return fn(l)
+  return l.kind === 'leaf' ? l : { ...l, a: wrapNode(l.a, id, fn), b: wrapNode(l.b, id, fn) }
+}
+
+/** Puts a tucked pane back next to its sibling, or next to `fallback` if the sibling is gone. */
+export function untuck(l: Layout, t: TuckedPane, fallback: string): Layout {
+  const pane: Layout = { kind: 'leaf', id: t.paneId, sessionId: t.sessionId }
+  const target = hasNode(l, t.sibling) ? t.sibling : fallback
+  const side = target === t.sibling ? t.side : 'b'
+  return wrapNode(l, target, (node) => ({
+    kind: 'split', id: t.splitId, dir: t.dir, a: side === 'a' ? pane : node, b: side === 'a' ? node : pane,
+  }))
+}
+
 export function paneOfSession(l: Layout, sessionId: string): string | null {
   return leaves(l).find((x) => x.sessionId === sessionId)?.id ?? null
 }
@@ -106,7 +146,11 @@ export function restoreGroups(w: SavedWorkspace, idOf: Map<string, string>): { g
   const groups = w.groups.map((g) => {
     const layout = mapLayout(g.layout, (l) => ({ ...l, sessionId: (l.sessionId && idOf.get(l.sessionId)) || null }))
     const ids = leaves(layout).map((l) => l.id)
-    return { ...g, layout, focusedPane: ids.includes(g.focusedPane) ? g.focusedPane : ids[0] }
+    const tucked = (g.tucked ?? []).flatMap((t) => {
+      const sessionId = idOf.get(t.sessionId)
+      return sessionId ? [{ ...t, sessionId }] : []
+    })
+    return { ...g, layout, tucked, focusedPane: ids.includes(g.focusedPane) ? g.focusedPane : ids[0] }
   })
   return {
     groups,

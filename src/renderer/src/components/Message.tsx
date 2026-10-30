@@ -6,6 +6,7 @@ import type { ImageAttachment, RewindResult } from '../../../shared/ipc'
 import ToolCard from './ToolCard'
 import Markdown, { CopyButton } from './Markdown'
 import Modal from './Modal'
+import ClaudeLogo from './ClaudeLogo'
 
 /** Where a top-level message lives; nested subagent messages have none and get no actions. */
 export interface MessageContext { sessionId: string; paneId: string; busy: boolean; ended: boolean }
@@ -147,7 +148,7 @@ function Message({ item, ctx, nested = false }: { item: ChatItem; ctx?: MessageC
     const hasText = item.blocks.some((b) => b.type === 'text' && b.text.trim())
     return (
       <div className="group/msg flex gap-3 fade-in">
-        {!nested && <div className="shrink-0 w-7 h-7 rounded-full bg-accent-soft text-accent flex items-center justify-center text-[11px] font-bold mt-0.5 select-none">C</div>}
+        {!nested && <div className="shrink-0 w-7 h-7 flex items-center justify-center mt-0.5 select-none"><ClaudeLogo /></div>}
         <div className="min-w-0 flex-1 space-y-3">
           {visible.map((b, i) => <BlockView key={b.type === 'tool_use' ? b.id : i} block={b} streaming={item.streaming} />)}
           {item.streaming && visible.length === 0 && (

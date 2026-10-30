@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   MymuxApi, SDKMessage, SessionMeta, PermissionRequest, BrowserState, DevCommand, DownloadInfo, FindResult, BrowserShortcut,
-  ElicitationRequest,
+  ElicitationRequest, ElementRef,
 } from '../shared/ipc'
 
 function on<T extends unknown[]>(channel: string, cb: (...args: T) => void) {
@@ -37,6 +37,8 @@ const api: MymuxApi = {
     setZoom: (id, factor) => ipcRenderer.invoke('browser:setZoom', id, factor),
     devTools: (id) => ipcRenderer.invoke('browser:devTools', id),
     capture: (id) => ipcRenderer.invoke('browser:capture', id),
+    pick: (id, on) => ipcRenderer.invoke('browser:pick', id, on),
+    setQuickAsks: (items) => ipcRenderer.invoke('browser:setQuickAsks', items),
     openPath: (path) => ipcRenderer.invoke('browser:openPath', path),
     showInFolder: (path) => ipcRenderer.invoke('browser:showInFolder', path),
     onState: (cb) => on<[BrowserState]>('browser:state', cb),
@@ -44,7 +46,8 @@ const api: MymuxApi = {
     onDownload: (cb) => on<[DownloadInfo]>('browser:download', cb),
     onFind: (cb) => on<[FindResult]>('browser:find', cb),
     onShortcut: (cb) => on<[string, BrowserShortcut]>('browser:shortcut', cb),
-    onAsk: (cb) => on<[string, string, string, string]>('browser:ask', cb),
+    onAsk: (cb) => on<[string, string, string, string, string?]>('browser:ask', cb),
+    onElement: (cb) => on<[string, ElementRef, string?]>('browser:element', cb),
   },
   createSession: (opts) => ipcRenderer.invoke('session:create', opts),
   send: (id, text, images, now) => ipcRenderer.invoke('session:send', id, text, images, now),
@@ -72,6 +75,9 @@ const api: MymuxApi = {
   fork: (id, opts) => ipcRenderer.invoke('session:fork', id, opts),
   rewindFiles: (id, uuid, dryRun) => ipcRenderer.invoke('session:rewindFiles', id, uuid, dryRun),
   searchFiles: (cwd, query) => ipcRenderer.invoke('files:search', cwd, query),
+  readFile: (cwd, path) => ipcRenderer.invoke('files:read', cwd, path),
+  writeFile: (path, content, expected) => ipcRenderer.invoke('files:write', path, content, expected),
+  fileMtime: (path) => ipcRenderer.invoke('files:mtime', path),
   listDir: (cwd, rel) => ipcRenderer.invoke('files:list', cwd, rel),
   stopTask: (id, taskId) => ipcRenderer.invoke('session:stopTask', id, taskId),
   setThinking: (id, enabled) => ipcRenderer.invoke('session:setThinking', id, enabled),

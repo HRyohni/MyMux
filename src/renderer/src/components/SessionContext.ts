@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import { useStore } from '../store'
+import { openFileInPanel } from '../actions'
 
 /** The session a piece of chat UI belongs to; null inside nested or detached views. */
 export const SessionContext = createContext<{ sessionId: string; cwd: string } | null>(null)
@@ -8,8 +8,5 @@ export const SessionContext = createContext<{ sessionId: string; cwd: string } |
 export function useOpenFile(): ((path: string) => void) | null {
   const ctx = useContext(SessionContext)
   if (!ctx) return null
-  return (path) => {
-    useStore.getState().setBrowserOpen(ctx.sessionId, true)
-    void window.mymux.browser.openFile(ctx.sessionId, path)
-  }
+  return (path) => openFileInPanel(ctx.sessionId, ctx.cwd, path)
 }

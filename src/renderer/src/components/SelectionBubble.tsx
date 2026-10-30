@@ -1,14 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { MessageCircle, Search } from 'lucide-react'
-import { askAbout, googleIt } from '../actions'
+import { askAbout, googleIt, quoteSelection, sendQuickAsk } from '../actions'
+import { useSettings } from '../settings'
+import { HOLD_MS, openPie } from '../../../shared/pie'
 
 /**
- * "Ask mymux" / "Google it" over text selected inside the container (the chat transcript).
- * Pages in the browser panel get the same bubble from src/preload/page.ts.
+ * "Ask mymux" / "Google it" over text selected inside the container (the chat transcript); holding
+ * Ask mymux opens the pie of quick questions. Pages in the browser panel get the same bubble from src/preload/page.ts.
  */
 export default function SelectionBubble({ sessionId, container }: { sessionId: string; container: RefObject<HTMLElement | null> }) {
   const [pos, setPos] = useState<{ left: number; top: number; text: string } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const closePie = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     const el = container.current
@@ -21,7 +24,7 @@ export default function SelectionBubble({ sessionId, container }: { sessionId: s
       if (r.width === 0 && r.height === 0) return setPos(null)
       setPos({ left: r.left + r.width / 2, top: r.top, text: text.slice(0, 20000) })
     }
-    const onUp = (e: MouseEvent) => { if (e.button === 0 && !ref.current?.contains(e.target as Node)) setTimeout(show, 0) }
+    const onUp = (e: MouseEvent) => { if (e.button === 0 && !closePie.current && !ref.current?.contains(e.target as Node)) setTimeout(show, 0) }
     const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setPos(null) }
     const onKeyUp = (e: KeyboardEvent) => { if (e.shiftKey || e.key === 'Shift') show() }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPos(null) }
@@ -45,6 +48,9 @@ export default function SelectionBubble({ sessionId, container }: { sessionId: s
     }
   }, [container])
 
+  useEffect(() => { if (!pos) closePie.current?.() }, [pos])
+  useEffect(() => () => closePie.current?.(), [])
+
   // Keep the bubble inside the window: above the selection, or below it near the top edge.
   const [box, setBox] = useState<{ w: number; h: number }>({ w: 200, h: 32 })
   useLayoutEffect(() => {
@@ -54,16 +60,38 @@ export default function SelectionBubble({ sessionId, container }: { sessionId: s
   const left = Math.min(Math.max(8, pos.left - box.w / 2), window.innerWidth - box.w - 8)
   const top = pos.top - box.h - 8 >= 4 ? pos.top - box.h - 8 : pos.top + 24
 
-  const act = (fn: (sid: string, text: string) => void) => {
-    fn(sessionId, pos.text)
+  const finish = () => {
     window.getSelection()?.removeAllRanges()
     setPos(null)
+  }
+  const act = (fn: (sid: string, text: string) => void) => {
+    if (closePie.current) return
+    fn(sessionId, pos.text)
+    finish()
+  }
+  // A long press opens the pie; let go early and it stays a normal click.
+  const press = (e: React.MouseEvent) => {
+    const asks = useSettings.getState().quickAsks
+    if (e.button !== 0 || asks.length === 0) return
+    const { clientX: x, clientY: y } = e
+    const release = () => { clearTimeout(timer); window.removeEventListener('mouseup', release, true) }
+    const timer = setTimeout(() => {
+      window.removeEventListener('mouseup', release, true)
+      closePie.current = openPie({
+        parent: document.body, x, y, names: asks.map((q) => q.name),
+        // The native browser view would cover anything drawn over it, so the pie stays over the chat.
+        bounds: container.current?.getBoundingClientRect(),
+        onPick: (i) => { sendQuickAsk(sessionId, quoteSelection(pos.text), asks[i].id); finish() },
+        onClose: () => { closePie.current = null },
+      })
+    }, HOLD_MS)
+    window.addEventListener('mouseup', release, true)
   }
   const btn = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-bg-elev2 whitespace-nowrap'
   return (
     <div ref={ref} onMouseDown={(e) => e.preventDefault()} style={{ left, top }}
       className="fixed z-50 flex gap-0.5 p-[3px] rounded-[10px] border border-border-strong bg-bg-elev shadow-lg text-[12.5px] font-medium text-fg select-none fade-in">
-      <button className={btn} onClick={() => act(askAbout)}><MessageCircle size={13} className="text-accent" /> Ask mymux</button>
+      <button className={btn} onMouseDown={press} onClick={() => act(askAbout)} title="Drži za brza pitanja"><MessageCircle size={13} className="text-accent" /> Ask mymux</button>
       <button className={btn} onClick={() => act(googleIt)}><Search size={13} /> Google it</button>
     </div>
   )

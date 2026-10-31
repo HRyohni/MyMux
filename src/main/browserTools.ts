@@ -21,7 +21,7 @@ const SNAPSHOT_SCRIPT = `(() => {
     const role = el.getAttribute('role') || (tag === 'a' ? 'link' : tag === 'button' ? 'button' : tag === 'input' ? (el.type || 'text') : tag);
     let line = '[' + ref + '] ' + role + ' "' + label(el) + '"';
     if (tag === 'a' && el.href) line += ' -> ' + el.href.slice(0, 120);
-    if ((tag === 'input' || tag === 'textarea') && el.value) line += ' value="' + String(el.value).slice(0, 60) + '"';
+    if ((tag === 'input' || tag === 'textarea') && el.value && el.type !== 'password') line += ' value="' + String(el.value).slice(0, 60) + '"';
     if (el.checked) line += ' [checked]';
     if (el.disabled) line += ' [disabled]';
     out.push(line);
@@ -33,7 +33,11 @@ const SNAPSHOT_SCRIPT = `(() => {
 /** Builds the per-session MCP server that exposes the visible browser panel to Claude. */
 export function createBrowserTools(b: SessionBrowser, onActivity: () => void, extraTools: NonNullable<Parameters<typeof createSdkMcpServer>[0]['tools']> = []) {
   const ref = (r: string) => `[data-mymux-ref="${r}"]`
-  const act = <T,>(fn: () => Promise<T>) => { onActivity(); return fn() }
+  const act = <T,>(fn: () => Promise<T>) => {
+    if (b.loginRunning) throw new Error('Prijava je u tijeku, pokušaj ponovno za trenutak')
+    onActivity()
+    return fn()
+  }
 
   const tools = [
     tool('browser_navigate', 'Otvori URL u browser panelu koji korisnik vidi. Vraća naslov i kratki snapshot.',

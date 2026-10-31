@@ -6,6 +6,7 @@ import { DEFAULT_QUICK_ASKS, MAX_QUICK_ASKS, type QuickAsk } from '../../../shar
 import { ACTIONS, comboOf, type ActionId } from '../keys'
 import { errText, readLayouts, saveLayout, deleteLayout, loadLayout } from '../actions'
 import type { McpServerInfo, SettingsSourceInfo, PermissionMode, EffortLevel, McpServerSpec, UsageInfo } from '../../../shared/ipc'
+import type { LoginAccount } from '../../../shared/credentials'
 import Modal from './Modal'
 
 const TABS = [
@@ -13,6 +14,7 @@ const TABS = [
   { id: 'keys', label: 'Prečaci' },
   { id: 'prompts', label: 'Predlošci' },
   { id: 'quick', label: 'Brza pitanja' },
+  { id: 'logins', label: 'Prijave' },
   { id: 'layouts', label: 'Rasporedi' },
   { id: 'mcp', label: 'MCP serveri' },
   { id: 'rules', label: 'Dopuštenja i hookovi' },
@@ -438,6 +440,55 @@ function QuickAsks() {
   )
 }
 
+function Logins() {
+  const [accounts, setAccounts] = useState<LoginAccount[]>([])
+  const [name, setName] = useState('')
+  const [url, setUrl] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const load = () => { window.mymux.listLogins().then(setAccounts).catch((e) => setError(errText(e))) }
+  useEffect(load, [])
+  const add = () => {
+    setError('')
+    window.mymux.saveLogin(name.trim(), url.trim(), username.trim(), password).then(() => {
+      setName(''); setUrl(''); setUsername(''); setPassword('')
+      load()
+    }).catch((e) => setError(errText(e)))
+  }
+  return (
+    <div>
+      <div className="pb-2 text-[11.5px] text-fg-faint">
+        Claude se prijavljuje spremljenim računom, a lozinku ne vidi: šifrirana je tvojim Windows računom i mymux je sam upisuje, samo na toj adresi i nakon tvog odobrenja. Nakon prijave Claude može u tom računu sve što možeš i ti, pa ovdje ne stavljaj banku ni glavni mail. 2FA kôd upisuješ sam.
+      </div>
+      {accounts.length === 0 && <Empty>Još nema spremljenih računa.</Empty>}
+      <div className="divide-y divide-border">
+        {accounts.map((a) => (
+          <div key={a.name} className="flex items-center gap-3 py-2.5">
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-mono truncate">{a.name}</div>
+              <div className="text-[11.5px] text-fg-faint truncate">{a.username} · {a.origin}</div>
+            </div>
+            <button onClick={() => { void window.mymux.deleteLogin(a.name).then(load) }} className={button}>Obriši</button>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 pt-3 border-t border-border space-y-2">
+        <div className="flex gap-2">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Naziv, npr. github" spellCheck={false} className={`${select} w-40 font-mono text-[12.5px]`} />
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com" spellCheck={false} className={`${select} flex-1 min-w-0 font-mono text-[12.5px]`} />
+        </div>
+        <div className="flex gap-2">
+          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Korisničko ime ili e-mail" autoComplete="off" spellCheck={false} className={`${select} flex-1 min-w-0`} />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Lozinka" autoComplete="new-password" className={`${select} flex-1 min-w-0`} />
+        </div>
+        <button onClick={add} disabled={!name.trim() || !url.trim() || !username.trim() || !password} className={button}>Spremi račun</button>
+        {error && <div className="text-[12px] text-danger">{error}</div>}
+      </div>
+    </div>
+  )
+}
+
 function Layouts({ onClose }: { onClose(): void }) {
   const [layouts, setLayouts] = useState(readLayouts)
   const [name, setName] = useState('')
@@ -542,6 +593,7 @@ export default function SettingsModal({ onClose }: { onClose(): void }) {
           {tab === 'mcp' && <Mcp sessionId={live} />}
           {tab === 'prompts' && <Prompts />}
           {tab === 'quick' && <QuickAsks />}
+          {tab === 'logins' && <Logins />}
           {tab === 'layouts' && <Layouts onClose={onClose} />}
           {tab === 'rules' && <Rules cwd={focused?.meta.cwd ?? null} />}
           {tab === 'account' && <Account sessionId={live} />}

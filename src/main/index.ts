@@ -7,6 +7,7 @@ import { createServer } from 'node:net'
 import { AgentManager } from './agent'
 import { CdpConnection, enableRemoteDebugging, sessionOfWebContents } from './browser'
 import { searchFiles, saveTempFile, readTextFile, writeTextFile, fileMtime } from './files'
+import { listLogins, saveLogin, deleteLogin } from './credentials'
 import { initAutoUpdate } from './updater'
 import { gitStatus, gitDiff, gitCommit, gitStash, gitWorktree } from './git'
 import { listDir, searchTranscripts, getSubagentHistory, saveExport, editPermissionRule } from './extras'
@@ -244,6 +245,9 @@ ipcMain.handle('stored:tag', (_e, sdkId: string, tag: string | null, cwd?: strin
 ipcMain.handle('stored:delete', (_e, sdkId: string, cwd?: string) => agents.deleteStored(sdkId, cwd))
 ipcMain.handle('settings:info', (_e, cwd: string) => agents.getSettingsInfo(cwd))
 ipcMain.handle('files:search', (_e, cwd: string, query: string) => searchFiles(cwd, query))
+ipcMain.handle('logins:list', () => listLogins())
+ipcMain.handle('logins:save', (_e, name: string, url: string, username: string, password: string) => saveLogin(name, url, username, password))
+ipcMain.handle('logins:delete', (_e, name: string) => deleteLogin(name))
 ipcMain.handle('files:read', (_e, cwd: string, path: string) => readTextFile(cwd, path))
 ipcMain.handle('files:write', (_e, path: string, content: string, expected: number | null) => writeTextFile(path, content, expected))
 ipcMain.handle('files:mtime', (_e, path: string) => fileMtime(path))

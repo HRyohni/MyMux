@@ -16,6 +16,7 @@ import type {
 import { SessionBrowser, type CdpConnection } from './browser'
 import { createBrowserTools } from './browserTools'
 import { settingsPaths } from './extras'
+import { listLogins, runLogin } from './credentials'
 import type { BrowserWindow } from 'electron'
 
 const DEFAULT_TITLE = 'Novi razgovor'
@@ -205,7 +206,8 @@ export class AgentManager {
         systemPrompt: {
           type: 'preset', preset: 'claude_code',
           append: 'Imaš browser panel koji korisnik vidi uživo u aplikaciji (alati mcp__mymux__browser_*). Koristi ga za web, PDF-ove i lokalne dokumente umjesto WebFetch-a kad korisnik želi nešto vidjeti. '
-            + 'U aplikaciji mogu biti otvoreni i drugi razgovori s Claudeom: mcp__mymux__session_list ih nabraja, a mcp__mymux__session_send im šalje poruku (korisnik to odobrava). Koristi ih samo kad korisnik traži suradnju između razgovora.',
+            + 'U aplikaciji mogu biti otvoreni i drugi razgovori s Claudeom: mcp__mymux__session_list ih nabraja, a mcp__mymux__session_send im šalje poruku (korisnik to odobrava). Koristi ih samo kad korisnik traži suradnju između razgovora. '
+            + 'Za prijavu na stranice koristi mcp__mymux__browser_login sa spremljenim računom; nikad ne traži lozinku u razgovoru.',
         },
         mcpServers: { ...toMcpConfig(opts.mcpServers), mymux: browserTools },
         // Only unlocks the "Bez pitanja" mode so the user can switch to it; the mode itself stays the user's choice.
@@ -407,7 +409,20 @@ export class AgentManager {
    */
   private sessionTools(selfId: string) {
     const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] })
+    const approvedLogins = new Set<string>()
     return [
+      tool('browser_login', 'Prijavi se na trenutnu stranicu računom koji je korisnik spremio u mymuxu. Bez argumenta vraća popis računa. Prvo otvori stranicu za prijavu. Korisnik odobrava prijavu, a lozinku nikad ne vidiš. Nikad ne traži lozinku u razgovoru.',
+        { account: z.string().optional().describe('Naziv spremljenog računa') },
+        async (a) => {
+          if (!a.account) {
+            const rows = listLogins().map((l) => `${l.name} · ${l.origin}`)
+            return text(rows.length ? rows.join('\n') : 'Korisnik nema spremljenih računa (Postavke → Prijave).')
+          }
+          const browser = this.sessions.get(selfId)?.browser
+          if (!browser || !this.win) return text('Browser nije dostupan.')
+          this.events.onBrowserActivity(selfId)
+          return text(await runLogin(browser, this.win, a.account, approvedLogins))
+        }),
       tool('session_list', 'Popis drugih razgovora otvorenih u aplikaciji: id, naslov, radna mapa i stanje.', {},
         async () => {
           const rows = [...this.sessions.values()].filter((s) => s.meta.id !== selfId && !s.meta.ended)

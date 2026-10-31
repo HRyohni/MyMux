@@ -28,6 +28,8 @@ export class SessionBrowser {
   private tabCounter = 0
   /** The tab waiting for the user to point at an element. */
   private pickingTab: string | null = null
+  /** A saved login is being typed in: the other browser tools wait, so none can read the field. */
+  loginRunning = false
 
   constructor(
     readonly sessionId: string,

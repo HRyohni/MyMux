@@ -7,6 +7,24 @@ import { comboOf, actionFor, DEFAULT_KEYS } from '../keys'
 import { fuzzyScore, rankFiles } from '../../../shared/fuzzy'
 import { pieIndexAt, pieLines, pieWedges } from '../../../shared/pie'
 import { tuckOf, untuck } from '../layout'
+import { loginOrigin } from '../../../shared/credentials'
+
+describe('login origin', () => {
+  it('allows https and plain http only on this machine', () => {
+    expect(loginOrigin('https://github.com/login?x=1')).toBe('https://github.com')
+    expect(loginOrigin('http://localhost:3000/a')).toBe('http://localhost:3000')
+    expect(loginOrigin('http://github.com')).toBeNull()
+    expect(loginOrigin('file:///C:/a.html')).toBeNull()
+    expect(loginOrigin('data:text/html,x')).toBeNull()
+    expect(loginOrigin('nonsense')).toBeNull()
+  })
+
+  it('tells look-alike sites apart', () => {
+    expect(loginOrigin('https://github.com.evil.test')).not.toBe(loginOrigin('https://github.com'))
+    expect(loginOrigin('https://evil.test/github.com')).not.toBe(loginOrigin('https://github.com'))
+    expect(loginOrigin('https://github.com:8443')).not.toBe(loginOrigin('https://github.com'))
+  })
+})
 
 describe('pie menu', () => {
   it('maps directions to wedges and leaves the hole empty', () => {

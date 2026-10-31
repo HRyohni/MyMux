@@ -1,4 +1,5 @@
 // IPC contract shared between main, preload and renderer.
+import type { LoginAccount } from './credentials'
 import type { SDKMessage, PermissionMode, PermissionUpdate, SDKSessionInfo } from '@anthropic-ai/claude-agent-sdk'
 
 export type { SDKMessage, PermissionMode, PermissionUpdate, SDKSessionInfo }
@@ -298,6 +299,11 @@ export interface MymuxApi {
   /** Copies the conversation into a new transcript; null means there was nothing before the message. */
   fork(sessionId: string, opts?: ForkOptions): Promise<{ sdkSessionId: string | null }>
   rewindFiles(sessionId: string, userMessageUuid: string, dryRun: boolean): Promise<RewindResult>
+  /** Saved logins without their passwords, which never leave the main process. */
+  listLogins(): Promise<LoginAccount[]>
+  /** Encrypts and stores a login; the same name replaces it. */
+  saveLogin(name: string, url: string, username: string, password: string): Promise<void>
+  deleteLogin(name: string): Promise<void>
   searchFiles(cwd: string, query: string): Promise<string[]>
   /** Rejects for binary or very large files, which the browser panel shows instead. */
   readFile(cwd: string, path: string): Promise<TextFile>

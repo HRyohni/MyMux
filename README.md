@@ -86,6 +86,9 @@ Windows is the tested platform. macOS (dmg) and Linux (AppImage) builds are conf
 - **Quick questions**: hold *Ask mymux* and a round menu opens. The question you pick is sent to Claude right away with the selection. Edit the list in *Settings → Quick questions*.
 - **Point at an element** (crosshair in the browser panel or `Ctrl+Shift+E`): click any part of a page and it joins your message with its selector, text, HTML and a cropped picture, so Claude knows exactly what you mean. Holding on an element opens the quick questions, Esc cancels. Content inside an iframe is picked as the whole iframe.
 
+### Saved logins
+Save a login in *Settings → Logins* and Claude can sign in with the `browser_login` tool without ever seeing the password. See [Security of saved logins](#security-of-saved-logins).
+
 ### Tuck to the edge
 In a split, the arrow in the pane header (or `Ctrl+Shift+H`) pulls a conversation into a narrow strip at the right edge. It keeps working, and a dot shows whether it is running or waiting for you. Click the strip (or `Ctrl+Shift+J` for the latest) to put it back where it was.
 
@@ -98,6 +101,28 @@ In a split, the arrow in the pane header (or `Ctrl+Shift+H`) pulls a conversatio
 
 ### Notifications
 A notification arrives when Claude finishes, waits for approval, or has a question or a plan, and clicking it opens that conversation. The tray icon shows how many conversations are waiting for you and how many are working. A short sound marks the end of a reply, with a lower tone on errors, and the speaker button turns it off.
+
+## Security of saved logins
+
+![How a saved login stays hidden from Claude](docs/screenshots/security.png)
+
+Claude asks to sign in by account name, and mymux does the rest. The password is not in the prompt, the tool result or the transcript.
+
+**What protects the password**
+
+- **Encrypted at rest:** passwords are encrypted with your Windows account through Electron `safeStorage` and decrypted only in the main process, when they are typed in. The settings screen can save a password but never reads one back.
+- **Exact site match:** a login works only on the origin you saved. `github.com.evil.test` is a different site. Addresses must use https, and plain http is accepted only for localhost.
+- **Your approval:** each login needs your answer in a native Windows dialog, once or for that conversation. Claude and web pages cannot answer it for you.
+- **No side doors during login:** the other browser tools are paused while the form is filled. `browser_snapshot` does not report password field values, and the field is cleared if it is still on the page afterwards.
+- **Failures say nothing:** Claude gets a short fixed status, never the error details from the fill.
+
+**What it does not protect against**
+
+- **Claude acting in the signed-in account.** Once you approve a login, Claude can do what you can do there, and `browser_eval` runs without asking. It could read page content and cookies that scripts can reach. A page can also try to trick Claude with hidden instructions.
+- **Malware on your computer.** Software running as your Windows user may be able to decrypt the saved passwords.
+- **The site itself.** The password is typed into the real site, so that site receives it as usual.
+
+**Recommended use:** create accounts with limited permissions, and keep banking, your main e-mail and production admin accounts out of mymux. 2FA codes are not stored, you enter them yourself. Sign-in through Google or Microsoft usually moves to another domain, so it stops before the password is typed.
 
 ## Settings
 
